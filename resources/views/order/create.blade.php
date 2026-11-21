@@ -1,7 +1,7 @@
 @extends('layouts.app', ['title' => 'Formulir Pemesanan Servis AC Masjid & Musholla'])
 
 @section('content')
-<div class="max-w-2xl mx-auto py-2 sm:py-6" 
+<div class="max-w-[520px] mx-auto py-2 sm:py-6" 
      x-data="{
         isNewMasjid: '0',
         selectedMasjidId: '{{ old('masjid_id', '') }}',
@@ -61,21 +61,18 @@
         @endif
      ">
 
-    <!-- Header Form -->
+    <!-- Header Formulir -->
     <div class="text-center mb-6">
-        <div class="w-16 h-16 bg-emerald-600 text-white rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3 shadow-md">
-            ❄️
-        </div>
-        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
             Pemesanan Servis AC Masjid
         </h1>
-        <p class="text-base text-slate-600 mt-1.5 max-w-lg mx-auto leading-relaxed">
-            Formulir praktis tanpa ribet untuk Pengurus DKM & Marbot Musholla. Teknisi siap datang merawat AC rumah ibadah.
+        <p class="text-sm text-gray-600 mt-1 leading-relaxed">
+            Formulir permohonan perawatan pendingin ruang ibadah untuk Pengurus DKM dan Marbot.
         </p>
     </div>
 
-    <!-- Kotak Formulir -->
-    <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-8">
+    <!-- Kartu Formulir Solid (Tanpa Glassmorphism) -->
+    <div class="bg-white rounded-xl border border-gray-200 p-5 sm:p-7 shadow-sm">
         <form method="POST" action="{{ route('order.store') }}" class="space-y-6">
             @csrf
 
@@ -87,81 +84,88 @@
             <input type="hidden" name="is_new_masjid" :value="isNewMasjid">
             <input type="hidden" name="masjid_id" :value="isNewMasjid === '0' ? selectedMasjidId : ''">
 
-            <!-- BAGIAN 1: DATA MASJID -->
+            <!-- BAGIAN 1: LOKASI MASJID -->
             <div class="space-y-4">
-                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-                        <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 text-sm font-bold flex items-center justify-center">1</span>
-                        <span>Lokasi Masjid / Musholla</span>
+                <div class="flex items-center justify-between pb-2 border-b border-gray-100">
+                    <h2 class="text-base font-semibold text-gray-900">
+                        1. Lokasi Masjid atau Musholla
                     </h2>
 
                     <!-- Pilihan Masjid Baru / Terdaftar -->
-                    <div class="flex bg-slate-100 p-1 rounded-xl">
+                    <div class="flex bg-gray-100 p-0.5 rounded-lg text-xs font-medium">
                         <button type="button" 
                                 @click="isNewMasjid = '0'" 
-                                :class="isNewMasjid === '0' ? 'bg-white text-emerald-800 shadow-xs font-bold' : 'text-slate-600'"
-                                class="px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer">
+                                :class="isNewMasjid === '0' ? 'bg-white text-gray-900 shadow-xs font-semibold' : 'text-gray-500 hover:text-gray-900'"
+                                class="px-2.5 py-1 rounded-md transition-all cursor-pointer">
                             Cari Terdaftar
                         </button>
                         <button type="button" 
                                 @click="isNewMasjid = '1'; selectedMasjidId = ''; masjidQuery = '';" 
-                                :class="isNewMasjid === '1' ? 'bg-white text-emerald-800 shadow-xs font-bold' : 'text-slate-600'"
-                                class="px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer">
+                                :class="isNewMasjid === '1' ? 'bg-white text-gray-900 shadow-xs font-semibold' : 'text-gray-500 hover:text-gray-900'"
+                                class="px-2.5 py-1 rounded-md transition-all cursor-pointer">
                             + Masjid Baru
                         </button>
                     </div>
                 </div>
 
                 <!-- Input Pencarian Masjid Lama -->
-                <div x-show="isNewMasjid === '0'" class="relative">
-                    <label class="block text-sm font-bold text-slate-900 mb-1.5">
-                        Cari Nama Masjid / Musholla
+                <div x-show="isNewMasjid === '0'" class="relative space-y-1.5">
+                    <label class="block text-sm font-medium text-gray-900">
+                        Nama Masjid atau Musholla
                     </label>
                     <input type="text" 
                            x-model="masjidQuery" 
                            @focus="showDropdown = true; searchMasjid()"
                            @input="searchMasjid(); showDropdown = true"
                            placeholder="Ketik nama masjid (contoh: Al-Muhajirin)" 
-                           class="w-full px-4 py-3 rounded-xl border border-slate-300 text-base text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+                           class="w-full min-h-[46px] px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 text-base placeholder-gray-400 focus:outline-none focus:border-[#1E3E34] focus:ring-1 focus:ring-[#1E3E34]">
                     
-                    <!-- Dropdown Hasil Autocomplete -->
+                    <!-- Kotak Rekomendasi Autocomplete -->
                     <div x-show="showDropdown && filteredMasjids.length > 0" 
                          @click.away="showDropdown = false"
-                         class="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                         class="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
                         <template x-for="item in filteredMasjids" :key="item.id">
                             <button type="button" 
                                     @click="selectMasjid(item)"
-                                    class="w-full text-left px-4 py-2.5 hover:bg-emerald-50 border-b border-slate-100 last:border-0 transition-colors cursor-pointer">
-                                <span class="block text-sm font-bold text-slate-900" x-text="item.name"></span>
-                                <span class="block text-xs text-slate-500 truncate" x-text="item.address"></span>
+                                    class="w-full text-left px-4 py-3 hover:bg-[#EBF2EE] border-b border-gray-100 last:border-0 transition-colors cursor-pointer">
+                                <span class="block text-sm font-semibold text-gray-900" x-text="item.name"></span>
+                                <span class="block text-xs text-gray-500 truncate mt-0.5" x-text="item.address"></span>
                             </button>
                         </template>
                     </div>
 
+                    <div class="pt-1">
+                        <button type="button" 
+                                @click="isNewMasjid = '1'; selectedMasjidId = ''; masjidQuery = '';"
+                                class="text-xs font-medium text-[#1E3E34] hover:underline cursor-pointer">
+                            + Daftarkan nama masjid baru ini jika belum ada di daftar
+                        </button>
+                    </div>
+
                     @error('masjid_id')
-                        <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                        <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
                     @enderror
                 </div>
 
                 <!-- Input Nama Masjid Baru -->
-                <div x-show="isNewMasjid === '1'">
-                    <label for="new_masjid_name" class="block text-sm font-bold text-slate-900 mb-1.5">
-                        Nama Masjid / Musholla Baru
+                <div x-show="isNewMasjid === '1'" class="space-y-1.5">
+                    <label for="new_masjid_name" class="block text-sm font-medium text-gray-900">
+                        Nama Masjid atau Musholla Baru
                     </label>
                     <input type="text" 
                            name="new_masjid_name" 
                            id="new_masjid_name"
                            value="{{ old('new_masjid_name') }}"
-                           placeholder="Contoh: Masjid Nurul Iman" 
-                           class="w-full px-4 py-3 rounded-xl border border-slate-300 text-base text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+                           placeholder="Contoh: Masjid Jamie Al-Barkah" 
+                           class="w-full min-h-[46px] px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 text-base placeholder-gray-400 focus:outline-none focus:border-[#1E3E34] focus:ring-1 focus:ring-[#1E3E34]">
                     @error('new_masjid_name')
-                        <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                        <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
                     @enderror
                 </div>
 
                 <!-- Alamat Lengkap -->
-                <div>
-                    <label for="address" class="block text-sm font-bold text-slate-900 mb-1.5">
+                <div class="space-y-1.5">
+                    <label for="address" class="block text-sm font-medium text-gray-900">
                         Alamat Lengkap Masjid
                     </label>
                     <textarea name="address" 
@@ -169,40 +173,39 @@
                               rows="2" 
                               x-model="address"
                               required
-                              placeholder="Jl. Nama Jalan No. XX, Kelurahan, Kecamatan, Kota (cantumkan patokan jika ada)" 
-                              class="w-full px-4 py-3 rounded-xl border border-slate-300 text-base text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"></textarea>
+                              placeholder="Jalan, nomor, kelurahan, kecamatan, kota (dan patokan)" 
+                              class="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#1E3E34] focus:ring-1 focus:ring-[#1E3E34]"></textarea>
                     @error('address')
-                        <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                        <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
                     @enderror
                 </div>
             </div>
 
-            <!-- BAGIAN 2: KONTAK PENGURUS (DKM / MARBOT) -->
+            <!-- BAGIAN 2: KONTAK PENGURUS -->
             <div class="space-y-4 pt-2">
-                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
-                    <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 text-sm font-bold flex items-center justify-center">2</span>
-                    <span>Kontak Pengurus (DKM / Marbot)</span>
+                <h2 class="text-base font-semibold text-gray-900 pb-2 border-b border-gray-100">
+                    2. Kontak Pengurus (DKM / Marbot)
                 </h2>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label for="pic_name" class="block text-sm font-bold text-slate-900 mb-1.5">
-                            Nama Pengurus / Pemesan
+                <div class="space-y-4">
+                    <div class="space-y-1.5">
+                        <label for="pic_name" class="block text-sm font-medium text-gray-900">
+                            Nama Pengurus atau Pemesan
                         </label>
                         <input type="text" 
                                name="pic_name" 
                                id="pic_name" 
                                x-model="picName"
                                required
-                               placeholder="Contoh: Pak Haji Bambang" 
-                               class="w-full px-4 py-3 rounded-xl border border-slate-300 text-base text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none">
+                               placeholder="Contoh: Bapak H. Bambang" 
+                               class="w-full min-h-[46px] px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 text-base placeholder-gray-400 focus:outline-none focus:border-[#1E3E34] focus:ring-1 focus:ring-[#1E3E34]">
                         @error('pic_name')
-                            <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                            <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    <div>
-                        <label for="pic_phone" class="block text-sm font-bold text-slate-900 mb-1.5">
+                    <div class="space-y-1.5">
+                        <label for="pic_phone" class="block text-sm font-medium text-gray-900">
                             Nomor WhatsApp Aktif
                         </label>
                         <input type="tel" 
@@ -210,10 +213,10 @@
                                id="pic_phone" 
                                x-model="picPhone"
                                required
-                               placeholder="08xxxxxxxxxx" 
-                               class="w-full px-4 py-3 rounded-xl border border-slate-300 text-base text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none font-mono">
+                               placeholder="Contoh: 081234567890" 
+                               class="w-full min-h-[46px] px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 text-base placeholder-gray-400 focus:outline-none focus:border-[#1E3E34] focus:ring-1 focus:ring-[#1E3E34] font-mono">
                         @error('pic_phone')
-                            <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                            <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
                 </div>
@@ -221,83 +224,87 @@
 
             <!-- BAGIAN 3: KELUHAN & JUMLAH AC -->
             <div class="space-y-4 pt-2">
-                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
-                    <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 text-sm font-bold flex items-center justify-center">3</span>
-                    <span>Pilihan Servis & Jumlah AC</span>
+                <h2 class="text-base font-semibold text-gray-900 pb-2 border-b border-gray-100">
+                    3. Kategori Layanan & Jumlah Unit
                 </h2>
 
                 <input type="hidden" name="dkm_complaint" :value="complaint">
                 <input type="hidden" name="ac_count" :value="acCount">
 
-                <!-- 3 Tombol Sentuh Besar untuk Keluhan -->
-                <div>
-                    <label class="block text-sm font-bold text-slate-900 mb-2">
-                        Pilih Kategori Servis AC:
+                <!-- Card Radio Selector Bersih (Tanpa Emoji) -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-900">
+                        Pilih Kategori Servis:
                     </label>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <!-- Cuci Rutin -->
-                        <button type="button" 
-                                @click="complaint = 'Cuci Rutin'"
-                                :class="complaint === 'Cuci Rutin' ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500' : 'border-slate-200 bg-white hover:border-slate-300'"
-                                class="p-4 rounded-2xl border text-left transition-all cursor-pointer">
-                            <span class="text-2xl block mb-1">❄️</span>
-                            <span class="block text-base font-bold text-slate-900">Cuci Rutin</span>
-                            <span class="block text-xs text-emerald-700 font-semibold mt-1">Rp 75.000 / unit</span>
-                        </button>
+                    <div class="grid grid-cols-1 gap-2.5">
+                        
+                        <!-- Pilihan 1: Cuci Rutin -->
+                        <div @click="complaint = 'Cuci Rutin'" 
+                             :class="complaint === 'Cuci Rutin' ? 'border-[#1E3E34] bg-[#EBF2EE] ring-1 ring-[#1E3E34]' : 'border-gray-200 bg-white hover:border-gray-300'"
+                             class="p-4 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between">
+                            <div>
+                                <span class="block text-base font-semibold text-gray-900">Cuci Rutin</span>
+                                <span class="block text-xs text-gray-600 mt-0.5">Pembersihan filter, evaporator, dan blower</span>
+                            </div>
+                            <span class="text-sm font-bold text-[#1E3E34]">Rp 75.000 / unit</span>
+                        </div>
 
-                        <!-- Tidak Dingin / Bocor -->
-                        <button type="button" 
-                                @click="complaint = 'Tidak Dingin / Bocor Air'"
-                                :class="complaint === 'Tidak Dingin / Bocor Air' ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500' : 'border-slate-200 bg-white hover:border-slate-300'"
-                                class="p-4 rounded-2xl border text-left transition-all cursor-pointer">
-                            <span class="text-2xl block mb-1">💧</span>
-                            <span class="block text-base font-bold text-slate-900">Kurang Dingin / Bocor</span>
-                            <span class="block text-xs text-emerald-700 font-semibold mt-1">Rp 85.000 / unit</span>
-                        </button>
+                        <!-- Pilihan 2: Kurang Dingin / Bocor -->
+                        <div @click="complaint = 'Tidak Dingin / Bocor Air'" 
+                             :class="complaint === 'Tidak Dingin / Bocor Air' ? 'border-[#1E3E34] bg-[#EBF2EE] ring-1 ring-[#1E3E34]' : 'border-gray-200 bg-white hover:border-gray-300'"
+                             class="p-4 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between">
+                            <div>
+                                <span class="block text-base font-semibold text-gray-900">Kurang Dingin / Bocor Air</span>
+                                <span class="block text-xs text-gray-600 mt-0.5">Pengecekan saluran pembuangan dan tekanan gas</span>
+                            </div>
+                            <span class="text-sm font-bold text-[#1E3E34]">Rp 85.000 / unit</span>
+                        </div>
 
-                        <!-- Mati Total -->
-                        <button type="button" 
-                                @click="complaint = 'Mati Total / Rusak'"
-                                :class="complaint === 'Mati Total / Rusak' ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500' : 'border-slate-200 bg-white hover:border-slate-300'"
-                                class="p-4 rounded-2xl border text-left transition-all cursor-pointer">
-                            <span class="text-2xl block mb-1">⚠️</span>
-                            <span class="block text-base font-bold text-slate-900">Mati Total / Rusak</span>
-                            <span class="block text-xs text-emerald-700 font-semibold mt-1">Rp 100.000 (Pengecekan)</span>
-                        </button>
+                        <!-- Pilihan 3: Mati Total / Rusak -->
+                        <div @click="complaint = 'Mati Total / Rusak'" 
+                             :class="complaint === 'Mati Total / Rusak' ? 'border-[#1E3E34] bg-[#EBF2EE] ring-1 ring-[#1E3E34]' : 'border-gray-200 bg-white hover:border-gray-300'"
+                             class="p-4 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between">
+                            <div>
+                                <span class="block text-base font-semibold text-gray-900">Mati Total / Rusak</span>
+                                <span class="block text-xs text-gray-600 mt-0.5">Pemeriksaan komponen modul dan kelistrikan</span>
+                            </div>
+                            <span class="text-sm font-bold text-[#1E3E34]">Rp 100.000 (Cek)</span>
+                        </div>
+
                     </div>
                 </div>
 
-                <!-- Counter Jumlah AC Ramah Sentuh -->
-                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <!-- Counter Jumlah AC Ramah Jempol -->
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center justify-between gap-4">
                     <div>
-                        <span class="block text-base font-bold text-slate-900">Berapa Unit AC yang Mau Diservis?</span>
-                        <span class="block text-xs text-slate-500">Tekan tombol plus (+) atau minus (-) di samping</span>
+                        <span class="block text-sm font-semibold text-gray-900">Jumlah Unit AC</span>
+                        <span class="block text-xs text-gray-500">Tekan tombol untuk mengubah</span>
                     </div>
 
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
                         <button type="button" 
                                 @click="decrement()"
                                 :disabled="acCount <= 1"
-                                class="w-12 h-12 rounded-xl bg-white border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-black text-2xl flex items-center justify-center shadow-xs cursor-pointer">
+                                class="w-11 h-11 rounded-lg bg-white border border-gray-300 text-gray-800 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-xl flex items-center justify-center cursor-pointer">
                             &minus;
                         </button>
 
-                        <div class="w-16 h-12 bg-white border border-emerald-500 rounded-xl flex items-center justify-center font-black text-xl text-emerald-900 shadow-inner">
+                        <div class="w-14 h-11 bg-white border border-gray-300 rounded-lg flex items-center justify-center font-bold text-base text-gray-900">
                             <span x-text="acCount"></span>
                         </div>
 
                         <button type="button" 
                                 @click="increment()"
-                                class="w-12 h-12 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 font-black text-2xl flex items-center justify-center shadow-sm cursor-pointer">
+                                class="w-11 h-11 rounded-lg bg-[#1E3E34] text-white hover:bg-[#142B24] font-bold text-xl flex items-center justify-center cursor-pointer">
                             +
                         </button>
                     </div>
                 </div>
 
                 <!-- Jadwal Kedatangan Pilihan -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label for="service_date" class="block text-sm font-bold text-slate-900 mb-1.5">
+                <div class="space-y-3">
+                    <div class="space-y-1.5">
+                        <label for="service_date" class="block text-sm font-medium text-gray-900">
                             Rencana Hari Servis (Opsional)
                         </label>
                         <input type="date" 
@@ -305,66 +312,64 @@
                                id="service_date"
                                value="{{ old('service_date', now()->addDay()->toDateString()) }}"
                                min="{{ now()->toDateString() }}"
-                               class="w-full px-4 py-3 rounded-xl border border-slate-300 text-base text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none">
+                               class="w-full min-h-[46px] px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-[#1E3E34]">
                     </div>
 
-                    <div>
-                        <label for="service_time" class="block text-sm font-bold text-slate-900 mb-1.5">
-                            Pilihan Waktu Datang
+                    <div class="space-y-1.5">
+                        <label for="service_time" class="block text-sm font-medium text-gray-900">
+                            Pilihan Waktu Kedatangan
                         </label>
                         <select name="service_time" 
                                 id="service_time"
-                                class="w-full px-4 py-3 rounded-xl border border-slate-300 text-base text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                class="w-full min-h-[46px] px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-[#1E3E34]">
                             <option value="Pagi (08:30 - 11:30 WIB)">Pagi (08:30 - 11:30 WIB)</option>
                             <option value="Siang Ba'da Dzuhur (13:00 - 15:00 WIB)">Siang Ba'da Dzuhur (13:00 - 15:00 WIB)</option>
                             <option value="Sore Ba'da Ashar (16:00 - 17:30 WIB)">Sore Ba'da Ashar (16:00 - 17:30 WIB)</option>
                             <option value="Kapan Saja / Fleksibel">Kapan Saja / Fleksibel</option>
                         </select>
                     </div>
-                </div>
 
-                <!-- Catatan Tambahan -->
-                <div>
-                    <label for="notes" class="block text-sm font-bold text-slate-900 mb-1.5">
-                        Catatan Tambahan (Opsional)
-                    </label>
-                    <input type="text" 
-                           name="notes" 
-                           id="notes"
-                           value="{{ old('notes') }}"
-                           placeholder="Contoh: AC ruang utama 2 unit di atas mimbar, butuh tangga tinggi" 
-                           class="w-full px-4 py-3 rounded-xl border border-slate-300 text-base text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none">
+                    <div class="space-y-1.5">
+                        <label for="notes" class="block text-sm font-medium text-gray-900">
+                            Catatan Tambahan (Opsional)
+                        </label>
+                        <input type="text" 
+                               name="notes" 
+                               id="notes"
+                               value="{{ old('notes') }}"
+                               placeholder="Contoh: Butuh tangga tinggi untuk ruang sholat utama" 
+                               class="w-full min-h-[46px] px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#1E3E34]">
+                    </div>
                 </div>
             </div>
 
-            <!-- KOTAK ESTIMASI BIAYA INTERAKTIF -->
-            <div class="bg-emerald-900 text-white rounded-2xl p-5 shadow-sm">
+            <!-- KOTAK ESTIMASI BIAYA SOLID -->
+            <div class="bg-[#EBF2EE] border border-[#1E3E34]/20 rounded-lg p-4">
                 <div class="flex items-center justify-between">
                     <div>
-                        <span class="block text-xs uppercase tracking-wider text-emerald-300 font-semibold">Perkiraan Biaya Awal</span>
-                        <div class="text-2xl sm:text-3xl font-black mt-0.5">
+                        <span class="block text-xs uppercase tracking-wider text-gray-600 font-semibold">Perkiraan Biaya Awal</span>
+                        <div class="text-xl sm:text-2xl font-bold text-[#1E3E34] mt-0.5">
                             Rp <span x-text="formatRupiah(estimatedTotal)"></span>
                         </div>
                     </div>
-                    <div class="text-right text-xs text-emerald-200">
+                    <div class="text-right text-xs text-gray-600">
                         <span class="block font-semibold" x-text="acCount + ' Unit &bull; ' + complaint"></span>
-                        <span class="block text-[11px] opacity-80">*Pelunasan setelah servis beres</span>
+                        <span class="block text-[11px] text-gray-500">*Pelunasan setelah servis beres</span>
                     </div>
                 </div>
             </div>
 
-            <!-- TOMBOL SUBMIT BESAR (Minimal 48px) -->
+            <!-- TOMBOL SUBMIT UTAMA (Minimal 48px, Hijau Khidmat #1E3E34) -->
             <button type="submit" 
-                    class="w-full min-h-[52px] py-3.5 px-6 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black text-lg rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer">
-                <span>🚀</span>
-                <span>Kirim Pesanan Servis Sekarang</span>
+                    class="w-full min-h-[48px] py-3.5 px-6 bg-[#1E3E34] hover:bg-[#142B24] text-white font-semibold text-base rounded-lg transition-colors focus:ring-2 focus:ring-[#1E3E34] focus:ring-offset-2 flex items-center justify-center cursor-pointer">
+                Kirim Pesanan Servis
             </button>
         </form>
     </div>
 
     <!-- Informasi Bantuan -->
-    <div class="mt-6 text-center text-xs text-slate-500">
-        Butuh bantuan darurat atau konsultasi langsung? Hubungi Admin via WhatsApp di nomor yang tertera di halaman berikutnya.
+    <div class="mt-6 text-center text-xs text-gray-500">
+        Butuh bantuan atau koordinasi langsung? Hubungi Admin melalui WhatsApp pada nomor yang tertera di halaman konfirmasi.
     </div>
 
 </div>

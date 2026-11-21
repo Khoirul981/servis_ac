@@ -20,10 +20,10 @@ class AdminTest extends TestCase
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
 
-        $this->actingAs($admin)->get('/admin?tab=pesanan_baru')->assertStatus(200)->assertSee('Pesanan Masuk');
+        $this->actingAs($admin)->get('/admin?tab=pesanan_baru')->assertStatus(200)->assertSee('Pesanan Baru');
         $this->actingAs($admin)->get('/admin?tab=berjalan')->assertStatus(200)->assertSee('Sedang Berjalan');
-        $this->actingAs($admin)->get('/admin?tab=menunggu_bayar')->assertStatus(200)->assertSee('Menunggu Bayar');
-        $this->actingAs($admin)->get('/admin?tab=selesai')->assertStatus(200)->assertSee('Riwayat Beres');
+        $this->actingAs($admin)->get('/admin?tab=menunggu_bayar')->assertStatus(200)->assertSee('Menunggu Pembayaran');
+        $this->actingAs($admin)->get('/admin?tab=selesai')->assertStatus(200)->assertSee('Selesai');
     }
 
     /**

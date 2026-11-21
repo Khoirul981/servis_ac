@@ -15,215 +15,186 @@
     }
 }">
 
-    <!-- Header Meja Admin -->
-    <div class="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <!-- Header Meja Admin Bersih Sesuai Panduan Section 5.3 -->
+    <div class="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold mb-1.5">
-                <span>🛡️</span> MEJA PENGELOLA OPERASIONAL
-            </div>
-            <h1 class="text-xl sm:text-2xl font-black text-slate-900">Pusat Kendali Pesanan Servis AC</h1>
-            <p class="text-xs sm:text-sm text-slate-500">Kelola jadwal teknisi, pantau pekerjaan di masjid, dan verifikasi pelunasan kuitansi.</p>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Meja Kerja Operasional Servis AC</h1>
+            <p class="text-xs sm:text-sm text-gray-500 mt-0.5">Penjadwalan teknisi, pemantauan pekerjaan di masjid, dan verifikasi pelunasan.</p>
         </div>
-        <div class="flex items-center gap-2">
-            <span class="px-3.5 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200">
-                📅 {{ now()->translatedFormat('l, d F Y') }}
+        <div class="flex items-center gap-3 text-xs">
+            <span class="px-3 py-1.5 bg-[#EBF2EE] text-[#1E3E34] font-semibold rounded-md border border-[#1E3E34]/20">
+                {{ now()->translatedFormat('l, d F Y') }}
             </span>
+            <span class="text-gray-500 font-medium">Petugas: <strong>{{ Auth::user()->name }}</strong></span>
         </div>
     </div>
 
-    <!-- 4 TAB STATUS OPERASIONAL -->
-    <div class="bg-slate-200/70 p-1.5 rounded-2xl flex flex-wrap gap-1 border border-slate-200 text-xs sm:text-sm font-bold">
-        <!-- Tab 1: Pesanan Masuk -->
+    <!-- BILAH TAB STATUS HORIZONTAL RAPI (Sesuai Panduan Section 5.3) -->
+    <div class="bg-white border border-gray-200 rounded-xl p-1.5 flex flex-wrap gap-1 text-xs sm:text-sm font-medium shadow-xs">
+        <!-- Tab 1: Pesanan Baru -->
         <a href="{{ route('admin.dashboard', ['tab' => 'pesanan_baru']) }}" 
-           class="flex-1 min-w-[140px] py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all {{ $activeTab === 'pesanan_baru' ? 'bg-white text-amber-900 shadow-sm' : 'text-slate-600 hover:text-slate-900' }}">
-            <span>📥 Pesanan Masuk</span>
-            <span class="px-2 py-0.5 rounded-full text-xs font-black {{ $activeTab === 'pesanan_baru' ? 'bg-amber-100 text-amber-800' : 'bg-slate-300 text-slate-700' }}">
+           class="flex-1 min-w-[130px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all {{ $activeTab === 'pesanan_baru' ? 'bg-[#1E3E34] text-white font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }}">
+            <span>Pesanan Baru</span>
+            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $activeTab === 'pesanan_baru' ? 'bg-white text-[#1E3E34]' : 'bg-[#FEF3C7] text-[#92400E]' }}">
                 {{ $counts['pesanan_baru'] }}
             </span>
         </a>
 
         <!-- Tab 2: Sedang Berjalan -->
         <a href="{{ route('admin.dashboard', ['tab' => 'berjalan']) }}" 
-           class="flex-1 min-w-[140px] py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all {{ $activeTab === 'berjalan' ? 'bg-white text-blue-900 shadow-sm' : 'text-slate-600 hover:text-slate-900' }}">
-            <span>🚀 Sedang Berjalan</span>
-            <span class="px-2 py-0.5 rounded-full text-xs font-black {{ $activeTab === 'berjalan' ? 'bg-blue-100 text-blue-800' : 'bg-slate-300 text-slate-700' }}">
+           class="flex-1 min-w-[130px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all {{ $activeTab === 'berjalan' ? 'bg-[#1E3E34] text-white font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }}">
+            <span>Sedang Berjalan</span>
+            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $activeTab === 'berjalan' ? 'bg-white text-[#1E3E34]' : 'bg-[#E0F2FE] text-[#0369A1]' }}">
                 {{ $counts['berjalan'] }}
             </span>
         </a>
 
         <!-- Tab 3: Menunggu Bayar -->
         <a href="{{ route('admin.dashboard', ['tab' => 'menunggu_bayar']) }}" 
-           class="flex-1 min-w-[140px] py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all {{ $activeTab === 'menunggu_bayar' ? 'bg-white text-purple-900 shadow-sm' : 'text-slate-600 hover:text-slate-900' }}">
-            <span>💰 Menunggu Bayar</span>
-            <span class="px-2 py-0.5 rounded-full text-xs font-black {{ $activeTab === 'menunggu_bayar' ? 'bg-purple-100 text-purple-800' : 'bg-slate-300 text-slate-700' }}">
+           class="flex-1 min-w-[130px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all {{ $activeTab === 'menunggu_bayar' ? 'bg-[#1E3E34] text-white font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }}">
+            <span>Menunggu Pembayaran</span>
+            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $activeTab === 'menunggu_bayar' ? 'bg-white text-[#1E3E34]' : 'bg-[#FFEDD5] text-[#C2410C]' }}">
                 {{ $counts['menunggu_bayar'] }}
             </span>
         </a>
 
         <!-- Tab 4: Riwayat Beres -->
         <a href="{{ route('admin.dashboard', ['tab' => 'selesai']) }}" 
-           class="flex-1 min-w-[140px] py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all {{ $activeTab === 'selesai' ? 'bg-white text-emerald-900 shadow-sm' : 'text-slate-600 hover:text-slate-900' }}">
-            <span>✅ Riwayat Beres</span>
-            <span class="px-2 py-0.5 rounded-full text-xs font-black {{ $activeTab === 'selesai' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-300 text-slate-700' }}">
+           class="flex-1 min-w-[130px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all {{ $activeTab === 'selesai' ? 'bg-[#1E3E34] text-white font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }}">
+            <span>Selesai & Lunas</span>
+            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $activeTab === 'selesai' ? 'bg-white text-[#1E3E34]' : 'bg-[#DCFCE7] text-[#15803D]' }}">
                 {{ $counts['selesai'] }}
             </span>
         </a>
     </div>
 
-    <!-- KONTEN TABEL / KARTU PESANAN SESUAI TAB -->
-    <div class="space-y-4">
-        @forelse($orders as $order)
-            <div class="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4 hover:border-slate-300 transition-all">
-                
-                <!-- Baris Atas: Nomor Order & Status -->
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800">
-                            {{ $order->order_number }}
-                        </span>
-                        <span class="text-xs text-slate-400">Masuk: {{ $order->created_at->translatedFormat('d M Y, H:i') }}</span>
-                    </div>
+    <!-- TABEL DATA RAPI DENGAN COMFORTABLE PADDING 14PX (Section 5.3) -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead class="bg-gray-50 border-b border-gray-200 text-gray-700 font-semibold uppercase text-[11px] tracking-wider">
+                    <tr>
+                        <th class="py-3.5 px-4">No. Order & Waktu</th>
+                        <th class="py-3.5 px-4">Masjid & Alamat</th>
+                        <th class="py-3.5 px-4">Layanan & Keluhan</th>
+                        <th class="py-3.5 px-4">Teknisi Bertugas</th>
+                        <th class="py-3.5 px-4 text-right">Total Biaya</th>
+                        <th class="py-3.5 px-4 text-center">Status</th>
+                        <th class="py-3.5 px-4 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse($orders as $order)
+                        <tr class="hover:bg-gray-50/80 transition-colors">
+                            
+                            <!-- No. Order -->
+                            <td class="py-3.5 px-4 whitespace-nowrap">
+                                <span class="font-mono font-bold text-gray-900 block">{{ $order->order_number }}</span>
+                                <span class="text-gray-500 text-[11px]">{{ $order->created_at->translatedFormat('d M, H:i') }}</span>
+                            </td>
 
-                    <span class="px-3 py-1 rounded-full text-xs font-black self-start sm:self-auto
-                        {{ $order->status === 'pesanan_baru' ? 'bg-amber-100 text-amber-800' : '' }}
-                        {{ $order->status === 'dijadwalkan' ? 'bg-blue-100 text-blue-800' : '' }}
-                        {{ $order->status === 'dikerjakan' ? 'bg-emerald-100 text-emerald-800 animate-pulse' : '' }}
-                        {{ $order->status === 'menunggu_bayar' ? 'bg-purple-100 text-purple-800' : '' }}
-                        {{ $order->status === 'selesai' ? 'bg-emerald-100 text-emerald-800' : '' }}
-                        {{ $order->status === 'batal' ? 'bg-rose-100 text-rose-800' : '' }}">
-                        {{ $order->statusLabel() }}
-                    </span>
-                </div>
+                            <!-- Masjid & Kontak -->
+                            <td class="py-3.5 px-4 max-w-[220px]">
+                                <strong class="text-sm font-semibold text-gray-900 block truncate">{{ $order->masjid->name }}</strong>
+                                <span class="text-gray-500 text-[11px] block truncate">{{ $order->masjid->address }}</span>
+                                <span class="text-gray-600 text-[11px] block mt-0.5">{{ $order->masjid->pic_name }} ({{ $order->masjid->pic_phone }})</span>
+                            </td>
 
-                <!-- Informasi Masjid & Detail Order -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                    
-                    <!-- Kolom 1: Info Masjid -->
-                    <div class="space-y-1">
-                        <span class="text-slate-400 font-bold block uppercase tracking-wider">Masjid & Lokasi</span>
-                        <h2 class="text-base font-black text-slate-900">{{ $order->masjid->name }}</h2>
-                        <p class="text-slate-600 leading-relaxed">{{ $order->masjid->address }}</p>
-                        <div class="text-slate-700 pt-1">
-                            <span>👤 PIC: <strong>{{ $order->masjid->pic_name }}</strong> ({{ $order->masjid->pic_phone }})</span>
-                        </div>
-                    </div>
+                            <!-- Layanan & AC -->
+                            <td class="py-3.5 px-4">
+                                <span class="font-medium text-gray-900 block">{{ $order->dkm_complaint }}</span>
+                                <span class="text-gray-500 text-[11px]">{{ $order->ac_count }} Unit AC &bull; Jadwal: {{ $order->service_time ?? '-' }}</span>
+                                @if($order->additional_amount > 0)
+                                    <span class="block text-[11px] text-amber-800 font-medium mt-0.5">
+                                        + Sparepart: {{ $order->additional_notes }}
+                                    </span>
+                                @endif
+                            </td>
 
-                    <!-- Kolom 2: Rincian Servis -->
-                    <div class="space-y-1">
-                        <span class="text-slate-400 font-bold block uppercase tracking-wider">Rincian Servis AC</span>
-                        <p class="text-slate-800">❄️ <strong>{{ $order->ac_count }} Unit AC</strong> &bull; {{ $order->dkm_complaint }}</p>
-                        <p class="text-slate-600">🕒 Rencana Datang: <strong>{{ $order->service_time ?? '-' }}</strong> ({{ $order->service_date ? $order->service_date->translatedFormat('d M Y') : 'Fleksibel' }})</p>
-                        @if($order->additional_notes)
-                            <p class="text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200 mt-1">
-                                <strong>Catatan:</strong> {{ $order->additional_notes }}
-                            </p>
-                        @endif
-                        @if($order->technician)
-                            <p class="text-blue-800 font-bold pt-1">
-                                🔧 Teknisi: {{ $order->technician->name }} ({{ $order->technician->phone }})
-                            </p>
-                        @endif
-                    </div>
+                            <!-- Teknisi -->
+                            <td class="py-3.5 px-4 whitespace-nowrap">
+                                @if($order->technician)
+                                    <span class="font-semibold text-gray-900 block">{{ $order->technician->name }}</span>
+                                    <span class="text-gray-500 text-[11px] font-mono">{{ $order->technician->phone }}</span>
+                                @else
+                                    <span class="text-amber-800 font-medium text-xs">Belum ditugaskan</span>
+                                @endif
+                            </td>
 
-                    <!-- Kolom 3: Biaya & Foto -->
-                    <div class="space-y-2">
-                        <span class="text-slate-400 font-bold block uppercase tracking-wider">Biaya & Pembayaran</span>
-                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
-                            <div class="flex justify-between text-slate-600">
-                                <span>Biaya Awal:</span>
-                                <span>Rp {{ number_format($order->base_amount, 0, ',', '.') }}</span>
-                            </div>
-                            @if($order->additional_amount > 0)
-                                <div class="flex justify-between text-amber-800 font-semibold">
-                                    <span>Tambahan Sparepart:</span>
-                                    <span>Rp {{ number_format($order->additional_amount, 0, ',', '.') }}</span>
+                            <!-- Total Biaya -->
+                            <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                                <span class="font-bold text-sm text-gray-900 block">
+                                    Rp {{ number_format($order->grandTotal(), 0, ',', '.') }}
+                                </span>
+                                @if($order->additional_amount > 0)
+                                    <span class="text-[11px] text-gray-500">Dasar: {{ number_format($order->base_amount, 0, ',', '.') }}</span>
+                                @endif
+                            </td>
+
+                            <!-- Status Badge Bersih Sesuai Palet Warna Section 2.3 -->
+                            <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                <span class="inline-block px-2.5 py-1 rounded-md text-xs font-semibold
+                                    {{ $order->status === 'pesanan_baru' ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]' : '' }}
+                                    {{ in_array($order->status, ['dijadwalkan', 'dikerjakan']) ? 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]' : '' }}
+                                    {{ $order->status === 'menunggu_bayar' ? 'bg-[#FFEDD5] text-[#C2410C] border border-[#FDBA74]' : '' }}
+                                    {{ $order->status === 'selesai' ? 'bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC]' : '' }}
+                                    {{ $order->status === 'batal' ? 'bg-[#FEE2E2] text-[#B91C1C] border border-[#FCA5A5]' : '' }}">
+                                    {{ $order->statusLabel() }}
+                                </span>
+                            </td>
+
+                            <!-- Tombol Aksi Teks Langsung (Section 5.3) -->
+                            <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                                <div class="flex items-center justify-end gap-1.5">
+                                    @if($order->status === 'pesanan_baru')
+                                        <button type="button" 
+                                                @click="openAssign({{ Js::from($order) }})"
+                                                class="px-3 py-1.5 rounded-md bg-[#1E3E34] hover:bg-[#142B24] text-white font-medium text-xs transition-colors cursor-pointer">
+                                            Tugaskan
+                                        </button>
+                                        <form method="POST" action="{{ route('admin.order.cancel', $order->id) }}" onsubmit="return confirm('Batalkan pesanan ini?');" class="inline">
+                                            @csrf
+                                            <button type="submit" class="px-2 py-1.5 text-gray-500 hover:text-red-700 text-xs font-medium cursor-pointer">
+                                                Batal
+                                            </button>
+                                        </form>
+                                    @elseif(in_array($order->status, ['dijadwalkan', 'dikerjakan']))
+                                        <button type="button" 
+                                                @click="openAssign({{ Js::from($order) }})"
+                                                class="px-3 py-1.5 rounded-md border border-gray-300 hover:bg-gray-100 text-gray-800 font-medium text-xs transition-colors cursor-pointer">
+                                            Ubah Jadwal
+                                        </button>
+                                    @elseif($order->status === 'menunggu_bayar')
+                                        <button type="button" 
+                                                @click="openPay({{ Js::from($order) }})"
+                                                class="px-3.5 py-1.5 rounded-md bg-[#1E3E34] hover:bg-[#142B24] text-white font-semibold text-xs transition-colors cursor-pointer">
+                                            Verifikasi Pelunasan
+                                        </button>
+                                    @elseif($order->status === 'selesai')
+                                        <a href="{{ route('admin.order.receipt', $order->id) }}" 
+                                           class="px-3 py-1.5 rounded-md border border-gray-300 hover:bg-gray-100 text-gray-800 font-medium text-xs transition-colors inline-block text-decoration-none">
+                                            Kuitansi
+                                        </a>
+                                    @endif
                                 </div>
-                            @endif
-                            <div class="pt-1 border-t border-slate-200 flex justify-between font-black text-sm text-slate-900">
-                                <span>Total Tagihan:</span>
-                                <span class="text-emerald-700">Rp {{ number_format($order->grandTotal(), 0, ',', '.') }}</span>
-                            </div>
-                        </div>
+                            </td>
 
-                        <!-- Galeri Mini Foto Bukti -->
-                        @if($order->photos->isNotEmpty())
-                            <div class="flex items-center gap-1.5 pt-1 overflow-x-auto">
-                                @foreach($order->photos as $photo)
-                                    <a href="{{ $photo->url }}" target="_blank" class="shrink-0 rounded-lg overflow-hidden border border-slate-200 w-12 h-12 block group">
-                                        <img src="{{ $photo->url }}" alt="Bukti" class="w-full h-full object-cover group-hover:opacity-80">
-                                    </a>
-                                @endforeach
-                                <span class="text-[11px] text-slate-500 font-bold ml-1">({{ $order->photos->count() }} Foto)</span>
-                            </div>
-                        @endif
-                    </div>
-
-                </div>
-
-                <!-- Baris Aksi Sesuai Status -->
-                <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-end gap-2">
-                    
-                    <!-- Aksi Tab 1: Pesanan Baru -> Tugaskan Teknisi -->
-                    @if($order->status === 'pesanan_baru')
-                        <button type="button" 
-                                @click="openAssign({{ Js::from($order) }})"
-                                class="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer">
-                            <span>👨‍🔧</span>
-                            <span>Tugaskan Teknisi & Jadwalkan</span>
-                        </button>
-
-                        <form method="POST" action="{{ route('admin.order.cancel', $order->id) }}" onsubmit="return confirm('Yakin ingin membatalkan pesanan ini?');" class="inline">
-                            @csrf
-                            <button type="submit" class="min-h-[44px] px-3.5 py-2 text-rose-700 hover:bg-rose-50 rounded-xl text-xs font-bold transition-colors cursor-pointer border border-rose-200">
-                                Batalkan
-                            </button>
-                        </form>
-                    @endif
-
-                    <!-- Aksi Tab 2: Sedang Berjalan -> Re-assign atau Pantau -->
-                    @if(in_array($order->status, ['dijadwalkan', 'dikerjakan']))
-                        <button type="button" 
-                                @click="openAssign({{ Js::from($order) }})"
-                                class="min-h-[44px] px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border border-slate-300 flex items-center gap-1.5 cursor-pointer">
-                            <span>🔄</span>
-                            <span>Ubah Teknisi / Jadwal</span>
-                        </button>
-                    @endif
-
-                    <!-- Aksi Tab 3: Menunggu Bayar -> Verifikasi Lunas -->
-                    @if($order->status === 'menunggu_bayar')
-                        <button type="button" 
-                                @click="openPay({{ Js::from($order) }})"
-                                class="min-h-[46px] px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer">
-                            <span>💰</span>
-                            <span>Verifikasi Pelunasan & Terbitkan Kuitansi</span>
-                        </button>
-                    @endif
-
-                    <!-- Aksi Tab 4: Riwayat Beres -> Kuitansi & WhatsApp -->
-                    @if($order->status === 'selesai')
-                        <a href="{{ route('admin.order.receipt', $order->id) }}" 
-                           class="min-h-[44px] px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 text-decoration-none">
-                            <span>🧾</span>
-                            <span>Buka Lembar Kuitansi</span>
-                        </a>
-                    @endif
-
-                </div>
-
-            </div>
-        @empty
-            <div class="bg-white rounded-3xl border border-dashed border-slate-300 p-10 text-center text-slate-500 space-y-2">
-                <span class="text-4xl block">📭</span>
-                <p class="font-bold text-slate-800 text-base">Tidak ada pesanan pada tab ini!</p>
-                <p class="text-xs text-slate-500">Semua pesanan telah diproses sesuai status alur kerjanya.</p>
-            </div>
-        @endforelse
-
-        <!-- Paginasi -->
-        <div>
-            {{ $orders->links() }}
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="py-10 text-center text-gray-400 text-xs">
+                                Tidak ada data pesanan pada tab ini.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
+    </div>
+
+    <!-- Paginasi -->
+    <div>
+        {{ $orders->links() }}
     </div>
 
     <!-- ========================================================================= -->
@@ -231,32 +202,31 @@
     <!-- ========================================================================= -->
     <div x-show="showAssignModal" 
          x-cloak
-         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
         <div @click.away="showAssignModal = false" 
-             class="bg-white rounded-3xl max-w-md w-full p-6 shadow-xl space-y-4">
+             class="bg-white rounded-xl border border-gray-200 max-w-md w-full p-6 shadow-xl space-y-4">
             
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
-                    <span>👨‍🔧</span>
-                    <span>Tugaskan Teknisi Servis</span>
+            <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <h3 class="text-base font-bold text-gray-900">
+                    Penugasan Teknisi & Jadwal Servis
                 </h3>
-                <button type="button" @click="showAssignModal = false" class="text-slate-400 hover:text-slate-600 text-xl font-bold cursor-pointer">&times;</button>
+                <button type="button" @click="showAssignModal = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer">&times;</button>
             </div>
 
             <template x-if="selectedOrder">
                 <form :action="'/admin/order/' + selectedOrder.id + '/assign'" method="POST" class="space-y-4">
                     @csrf
                     
-                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                        <span class="text-slate-500 block">Masjid:</span>
-                        <strong class="text-slate-900 text-sm block" x-text="selectedOrder.masjid.name"></strong>
-                        <span class="text-slate-600 block mt-0.5" x-text="selectedOrder.ac_count + ' Unit AC (' + selectedOrder.dkm_complaint + ')'"></span>
+                    <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs">
+                        <span class="text-gray-500 block">Masjid:</span>
+                        <strong class="text-gray-900 text-sm block" x-text="selectedOrder.masjid.name"></strong>
+                        <span class="text-gray-600 block mt-0.5" x-text="selectedOrder.ac_count + ' Unit AC &bull; ' + selectedOrder.dkm_complaint"></span>
                     </div>
 
                     <!-- Pilih Teknisi -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-800 mb-1">Pilih Teknisi Lapangan:</label>
-                        <select name="technician_id" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-medium text-gray-800">Pilih Teknisi Lapangan:</label>
+                        <select name="technician_id" required class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
                             <option value="">-- Pilih Teknisi --</option>
                             @foreach($technicians as $tech)
                                 <option value="{{ $tech->id }}">{{ $tech->name }} ({{ $tech->phone }})</option>
@@ -265,17 +235,17 @@
                     </div>
 
                     <!-- Tanggal Servis -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-800 mb-1">Tanggal Kedatangan:</label>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-medium text-gray-800">Tanggal Kedatangan:</label>
                         <input type="date" name="service_date" required 
                                :value="selectedOrder.service_date ? selectedOrder.service_date.split('T')[0] : '{{ now()->toDateString() }}'"
-                               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500">
+                               class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34]">
                     </div>
 
                     <!-- Jam Servis -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-800 mb-1">Jam Kedatangan:</label>
-                        <select name="service_time" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-medium text-gray-800">Jam Kedatangan:</label>
+                        <select name="service_time" required class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
                             <option value="Pagi (08:30 - 11:30 WIB)">Pagi (08:30 - 11:30 WIB)</option>
                             <option value="Siang Ba'da Dzuhur (13:00 - 15:00 WIB)">Siang Ba'da Dzuhur (13:00 - 15:00 WIB)</option>
                             <option value="Sore Ba'da Ashar (16:00 - 17:30 WIB)">Sore Ba'da Ashar (16:00 - 17:30 WIB)</option>
@@ -283,8 +253,8 @@
                     </div>
 
                     <div class="flex items-center justify-end gap-2 pt-2">
-                        <button type="button" @click="showAssignModal = false" class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer">Batal</button>
-                        <button type="submit" class="px-5 py-2.5 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl cursor-pointer shadow-xs">Simpan Penugasan</button>
+                        <button type="button" @click="showAssignModal = false" class="px-4 py-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">Batal</button>
+                        <button type="submit" class="px-5 py-2.5 text-xs font-semibold text-white bg-[#1E3E34] hover:bg-[#142B24] rounded-lg cursor-pointer transition-colors">Simpan Penugasan</button>
                     </div>
                 </form>
             </template>
@@ -296,53 +266,52 @@
     <!-- ========================================================================= -->
     <div x-show="showPayModal" 
          x-cloak
-         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
         <div @click.away="showPayModal = false" 
-             class="bg-white rounded-3xl max-w-md w-full p-6 shadow-xl space-y-4">
+             class="bg-white rounded-xl border border-gray-200 max-w-md w-full p-6 shadow-xl space-y-4">
             
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
-                    <span>💰</span>
-                    <span>Verifikasi Uang Masuk</span>
+            <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <h3 class="text-base font-bold text-gray-900">
+                    Verifikasi Pelunasan Pembayaran
                 </h3>
-                <button type="button" @click="showPayModal = false" class="text-slate-400 hover:text-slate-600 text-xl font-bold cursor-pointer">&times;</button>
+                <button type="button" @click="showPayModal = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer">&times;</button>
             </div>
 
             <template x-if="selectedOrder">
                 <form :action="'/admin/order/' + selectedOrder.id + '/pay'" method="POST" class="space-y-4">
                     @csrf
 
-                    <div class="p-4 bg-purple-50 rounded-2xl border border-purple-200 text-xs space-y-1.5">
-                        <span class="text-purple-700 font-bold block" x-text="selectedOrder.masjid.name"></span>
-                        <div class="flex justify-between text-slate-700">
-                            <span>Biaya Servis:</span>
+                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 text-xs space-y-1.5">
+                        <span class="text-gray-900 font-bold block" x-text="selectedOrder.masjid.name"></span>
+                        <div class="flex justify-between text-gray-600">
+                            <span>Biaya Servis Dasar:</span>
                             <span x-text="'Rp ' + new Intl.NumberFormat('id-ID').format(selectedOrder.base_amount)"></span>
                         </div>
                         <template x-if="selectedOrder.additional_amount > 0">
-                            <div class="flex justify-between text-amber-800 font-semibold">
-                                <span>Sparepart:</span>
+                            <div class="flex justify-between text-gray-800 font-medium">
+                                <span>Biaya Sparepart:</span>
                                 <span x-text="'Rp ' + new Intl.NumberFormat('id-ID').format(selectedOrder.additional_amount)"></span>
                             </div>
                         </template>
-                        <div class="pt-2 border-t border-purple-200 flex justify-between font-black text-sm text-purple-900">
-                            <span>Total Pelunasan:</span>
-                            <span x-text="'Rp ' + new Intl.NumberFormat('id-ID').format(parseFloat(selectedOrder.base_amount) + parseFloat(selectedOrder.additional_amount))"></span>
+                        <div class="pt-2 border-t border-gray-200 flex justify-between font-bold text-sm text-gray-900">
+                            <span>Total Pembayaran:</span>
+                            <span class="text-[#1E3E34]" x-text="'Rp ' + new Intl.NumberFormat('id-ID').format(parseFloat(selectedOrder.base_amount) + parseFloat(selectedOrder.additional_amount))"></span>
                         </div>
                     </div>
 
                     <!-- Pilih Metode Bayar -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-800 mb-1.5">Metode Pembayaran:</label>
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-medium text-gray-800">Metode Pembayaran:</label>
                         <div class="grid grid-cols-3 gap-2">
-                            <label class="border rounded-xl p-3 text-center cursor-pointer text-xs font-bold">
+                            <label class="border border-gray-300 rounded-lg p-2.5 text-center cursor-pointer text-xs font-medium hover:border-[#1E3E34]">
                                 <input type="radio" name="payment_method" value="transfer" checked class="mb-1 block mx-auto">
                                 <span>Transfer</span>
                             </label>
-                            <label class="border rounded-xl p-3 text-center cursor-pointer text-xs font-bold">
+                            <label class="border border-gray-300 rounded-lg p-2.5 text-center cursor-pointer text-xs font-medium hover:border-[#1E3E34]">
                                 <input type="radio" name="payment_method" value="qris" class="mb-1 block mx-auto">
                                 <span>QRIS</span>
                             </label>
-                            <label class="border rounded-xl p-3 text-center cursor-pointer text-xs font-bold">
+                            <label class="border border-gray-300 rounded-lg p-2.5 text-center cursor-pointer text-xs font-medium hover:border-[#1E3E34]">
                                 <input type="radio" name="payment_method" value="cash" class="mb-1 block mx-auto">
                                 <span>Tunai</span>
                             </label>
@@ -350,8 +319,8 @@
                     </div>
 
                     <div class="flex items-center justify-end gap-2 pt-2">
-                        <button type="button" @click="showPayModal = false" class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer">Batal</button>
-                        <button type="submit" class="px-5 py-2.5 text-xs font-black text-white bg-purple-600 hover:bg-purple-700 rounded-xl cursor-pointer shadow-xs">Konfirmasi Lunas & Terbitkan Kuitansi</button>
+                        <button type="button" @click="showPayModal = false" class="px-4 py-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">Batal</button>
+                        <button type="submit" class="px-5 py-2.5 text-xs font-semibold text-white bg-[#1E3E34] hover:bg-[#142B24] rounded-lg cursor-pointer transition-colors">Verifikasi Lunas & Buat Kuitansi</button>
                     </div>
                 </form>
             </template>
