@@ -33,12 +33,20 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
     // Master Masjid & Unit AC
     Route::get('/masjids', [MasterMasjidController::class, 'index'])->name('masjids.index');
+    Route::post('/masjids', [MasterMasjidController::class, 'store'])->name('masjids.store');
     Route::get('/masjids/{id}', [MasterMasjidController::class, 'show'])->name('masjids.show');
+    Route::put('/masjids/{id}', [MasterMasjidController::class, 'update'])->name('masjids.update');
+    Route::delete('/masjids/{id}', [MasterMasjidController::class, 'destroy'])->name('masjids.destroy');
+
     Route::post('/masjids/{id}/ac', [MasterMasjidController::class, 'storeAcUnit'])->name('masjids.ac.store');
+    Route::put('/ac/{id}', [MasterMasjidController::class, 'updateAcUnit'])->name('masjids.ac.update');
+    Route::delete('/ac/{id}', [MasterMasjidController::class, 'destroyAcUnit'])->name('masjids.ac.destroy');
 
     // Master Petugas
     Route::get('/users', [MasterUserController::class, 'index'])->name('users.index');
     Route::post('/users', [MasterUserController::class, 'store'])->name('users.store');
+    Route::put('/users/{id}', [MasterUserController::class, 'update'])->name('users.update');
+    Route::delete('/users/{id}', [MasterUserController::class, 'destroy'])->name('users.destroy');
 });
 
 // Dashboard Mobile Teknisi Lapangan (Role: technician)

@@ -177,4 +177,121 @@ class AdminTest extends TestCase
             'phone' => '081255556666',
         ]);
     }
+
+    /**
+     * Test admin dapat membuat, memperbarui, dan menghapus data masjid.
+     */
+    public function test_admin_can_create_update_and_delete_masjid(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+
+        // 1. Create Masjid
+        $responseCreate = $this->actingAs($admin)->post('/admin/masjids', [
+            'name' => 'Masjid Nurul Huda',
+            'address' => 'Jl. Kebon Jeruk No. 12',
+            'pic_name' => 'Pak Haji Syahril',
+            'pic_phone' => '081233445566',
+        ]);
+        $responseCreate->assertRedirect();
+        $this->assertDatabaseHas('masjids', [
+            'name' => 'Masjid Nurul Huda',
+            'pic_phone' => '081233445566',
+        ]);
+
+        $masjid = Masjid::where('name', 'Masjid Nurul Huda')->first();
+
+        // 2. Update Masjid
+        $responseUpdate = $this->actingAs($admin)->put('/admin/masjids/' . $masjid->id, [
+            'name' => 'Masjid Nurul Huda Updated',
+            'address' => 'Jl. Kebon Jeruk No. 12 Baru',
+            'pic_name' => 'Pak Haji Syahril',
+            'pic_phone' => '081233445566',
+        ]);
+        $responseUpdate->assertRedirect();
+        $this->assertDatabaseHas('masjids', [
+            'id' => $masjid->id,
+            'name' => 'Masjid Nurul Huda Updated',
+        ]);
+
+        // 3. Delete Masjid
+        $responseDelete = $this->actingAs($admin)->delete('/admin/masjids/' . $masjid->id);
+        $responseDelete->assertRedirect('/admin/masjids');
+        $this->assertDatabaseMissing('masjids', [
+            'id' => $masjid->id,
+        ]);
+    }
+
+    /**
+     * Test admin dapat memperbarui dan menghapus unit AC.
+     */
+    public function test_admin_can_update_and_delete_ac_unit(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $masjid = Masjid::factory()->create();
+        $unit = \App\Models\AcUnit::create([
+            'masjid_id' => $masjid->id,
+            'room_name' => 'Ruang Imam',
+            'ac_type' => '1 PK',
+            'brand' => 'Daikin',
+        ]);
+
+        // Update AC Unit
+        $responseUpdate = $this->actingAs($admin)->put('/admin/ac/' . $unit->id, [
+            'room_name' => 'Ruang Imam Baru',
+            'ac_type' => '2 PK Inverter',
+            'brand' => 'Panasonic',
+        ]);
+        $responseUpdate->assertRedirect();
+        $this->assertDatabaseHas('ac_units', [
+            'id' => $unit->id,
+            'room_name' => 'Ruang Imam Baru',
+            'ac_type' => '2 PK Inverter',
+            'brand' => 'Panasonic',
+        ]);
+
+        // Delete AC Unit
+        $responseDelete = $this->actingAs($admin)->delete('/admin/ac/' . $unit->id);
+        $responseDelete->assertRedirect();
+        $this->assertDatabaseMissing('ac_units', [
+            'id' => $unit->id,
+        ]);
+    }
+
+    /**
+     * Test admin dapat memperbarui dan menghapus akun pengguna serta dicegah menghapus diri sendiri.
+     */
+    public function test_admin_can_update_and_delete_user_and_cannot_delete_self(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $tech = User::factory()->create([
+            'name' => 'Bambang',
+            'email' => 'bambang@servisac.com',
+            'phone' => '081299887766',
+            'role' => User::ROLE_TECHNICIAN,
+        ]);
+
+        // Update User
+        $responseUpdate = $this->actingAs($admin)->put('/admin/users/' . $tech->id, [
+            'name' => 'Bambang Pamungkas',
+            'email' => 'bambang.baru@servisac.com',
+            'phone' => '081299887766',
+            'role' => User::ROLE_TECHNICIAN,
+        ]);
+        $responseUpdate->assertRedirect();
+        $this->assertDatabaseHas('users', [
+            'id' => $tech->id,
+            'name' => 'Bambang Pamungkas',
+            'email' => 'bambang.baru@servisac.com',
+        ]);
+
+        // Admin cannot delete self
+        $responseSelfDelete = $this->actingAs($admin)->delete('/admin/users/' . $admin->id);
+        $responseSelfDelete->assertRedirect();
+        $this->assertDatabaseHas('users', ['id' => $admin->id]);
+
+        // Admin can delete other user
+        $responseDelete = $this->actingAs($admin)->delete('/admin/users/' . $tech->id);
+        $responseDelete->assertRedirect();
+        $this->assertDatabaseMissing('users', ['id' => $tech->id]);
+    }
 }
