@@ -39,10 +39,10 @@
                 <thead class="bg-gray-50 border-b border-gray-200 uppercase text-gray-700 font-semibold text-[11px] tracking-wider">
                     <tr>
                         <th class="py-3.5 px-4">Nama Masjid & Alamat</th>
-                        <th class="py-3.5 px-4">Pengurus (DKM / Marbot)</th>
-                        <th class="py-3.5 px-4 text-center">Unit AC</th>
-                        <th class="py-3.5 px-4 text-center">Servis Terakhir</th>
-                        <th class="py-3.5 px-4 text-right">Aksi</th>
+                        <th class="py-3.5 px-4 whitespace-nowrap">Pengurus (DKM / Marbot)</th>
+                        <th class="py-3.5 px-4 text-center whitespace-nowrap">Unit AC</th>
+                        <th class="py-3.5 px-4 text-center whitespace-nowrap">Servis Terakhir</th>
+                        <th class="py-3.5 px-4 text-right whitespace-nowrap">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -52,33 +52,33 @@
                                 <strong class="text-sm font-semibold text-gray-900 block">{{ $masjid->name }}</strong>
                                 <span class="text-gray-500 text-xs">{{ $masjid->address }}</span>
                             </td>
-                            <td class="py-3.5 px-4">
+                            <td class="py-3.5 px-4 whitespace-nowrap">
                                 <span class="font-medium text-gray-800 block">{{ $masjid->pic_name }}</span>
                                 <span class="text-gray-500 font-mono">{{ $masjid->pic_phone }}</span>
                             </td>
-                            <td class="py-3.5 px-4 text-center">
-                                <span class="px-2.5 py-1 rounded-md bg-[#EBF2EE] text-[#1E3E34] font-semibold border border-[#1E3E34]/20">
+                            <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                <span class="inline-flex items-center justify-center px-3 py-1 rounded-md bg-[#EBF2EE] text-[#1E3E34] font-semibold border border-[#1E3E34]/20 whitespace-nowrap text-xs">
                                     {{ $masjid->ac_units_count }} Unit
                                 </span>
                             </td>
-                            <td class="py-3.5 px-4 text-center text-gray-600">
+                            <td class="py-3.5 px-4 text-center text-gray-600 whitespace-nowrap">
                                 {{ $masjid->last_service_date ? $masjid->last_service_date->translatedFormat('d M Y') : 'Belum pernah' }}
                             </td>
-                            <td class="py-3.5 px-4 text-right">
-                                <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                            <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                                <div class="flex items-center justify-end gap-1.5">
                                     <a href="{{ route('admin.masjids.show', $masjid->id) }}" 
-                                       class="px-2.5 py-1.5 rounded-md border border-gray-300 hover:bg-gray-100 text-gray-800 font-medium transition-colors text-decoration-none">
+                                       class="px-2.5 py-1.5 rounded-md border border-gray-300 hover:bg-gray-100 text-gray-800 font-medium transition-colors text-decoration-none whitespace-nowrap">
                                         Kelola Unit AC
                                     </a>
                                     <button type="button" 
                                             onclick="openEditMasjidModal({{ $masjid->id }}, '{{ addslashes($masjid->name) }}', '{{ addslashes($masjid->address) }}', '{{ addslashes($masjid->pic_name) }}', '{{ $masjid->pic_phone }}')"
-                                            class="px-2.5 py-1.5 rounded-md border border-gray-300 hover:bg-gray-100 text-gray-800 font-medium transition-colors cursor-pointer">
+                                            class="px-2.5 py-1.5 rounded-md border border-gray-300 hover:bg-gray-100 text-gray-800 font-medium transition-colors cursor-pointer whitespace-nowrap">
                                         Edit
                                     </button>
                                     <form method="POST" action="{{ route('admin.masjids.destroy', $masjid->id) }}" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus data masjid {{ addslashes($masjid->name) }}?')">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 font-medium transition-colors cursor-pointer">
+                                        <button type="submit" class="px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 font-medium transition-colors cursor-pointer whitespace-nowrap">
                                             Hapus
                                         </button>
                                     </form>

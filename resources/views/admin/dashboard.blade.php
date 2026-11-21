@@ -4,7 +4,10 @@
 <div class="space-y-6" x-data="{
     showAssignModal: false,
     showPayModal: false,
+    showPhotosModal: false,
     selectedOrder: null,
+    activePhotos: [],
+    activeOrderNumber: '',
     openAssign(order) {
         this.selectedOrder = order;
         this.showAssignModal = true;
@@ -12,6 +15,11 @@
     openPay(order) {
         this.selectedOrder = order;
         this.showPayModal = true;
+    },
+    openPhotos(photos, orderNumber) {
+        this.activePhotos = photos;
+        this.activeOrderNumber = orderNumber;
+        this.showPhotosModal = true;
     }
 }">
 
@@ -108,6 +116,15 @@
                                     <span class="block text-[11px] text-amber-800 font-medium mt-0.5">
                                         + Sparepart: {{ $order->additional_notes }}
                                     </span>
+                                @endif
+                                @if($order->photos->isNotEmpty())
+                                    <div class="mt-1">
+                                        <button type="button" 
+                                                @click="openPhotos({{ Js::from($order->photos) }}, '{{ $order->order_number }}')"
+                                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-[11px] cursor-pointer">
+                                            {{ $order->photos->count() }} Foto Bukti
+                                        </button>
+                                    </div>
                                 @endif
                             </td>
 
@@ -324,6 +341,58 @@
                     </div>
                 </form>
             </template>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL LIHAT FOTO BUKTI SERVIS OLEH ADMIN -->
+    <!-- ========================================================================= -->
+    <div x-show="showPhotosModal" 
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+        <div @click.away="showPhotosModal = false" 
+             class="bg-white rounded-xl border border-gray-200 max-w-2xl w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            
+            <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div>
+                    <h3 class="text-base font-bold text-gray-900">
+                        Foto Bukti Servis Lapangan
+                    </h3>
+                    <p class="text-xs text-gray-500" x-text="'Nomor Pesanan: ' + activeOrderNumber"></p>
+                </div>
+                <button type="button" @click="showPhotosModal = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer">&times;</button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <template x-for="photo in activePhotos" :key="photo.id">
+                    <div class="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-xs flex flex-col justify-between">
+                        <div class="relative bg-gray-100">
+                            <img :src="photo.url || ('/storage/' + photo.photo_url)" alt="Bukti Servis" class="w-full h-40 object-cover">
+                            <span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm"
+                                  :class="photo.photo_type === 'sebelum' ? 'bg-amber-100 text-amber-800 border border-amber-300' : (photo.photo_type === 'sesudah' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-blue-100 text-blue-800 border border-blue-300')"
+                                  x-text="photo.photo_type"></span>
+                        </div>
+                        <div class="p-3 text-xs space-y-2">
+                            <p class="text-gray-800 font-medium" x-text="photo.caption || 'Tanpa keterangan'"></p>
+                            <div class="flex items-center justify-end pt-1.5 border-t border-gray-100">
+                                <form :action="'/admin/order/foto/' + photo.id" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus foto bukti servis ini?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="px-2.5 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 font-medium text-xs cursor-pointer">
+                                        Hapus Foto
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <div class="flex justify-end pt-3 border-t border-gray-100">
+                <button type="button" @click="showPhotosModal = false" class="px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg cursor-pointer">
+                    Tutup
+                </button>
+            </div>
         </div>
     </div>
 

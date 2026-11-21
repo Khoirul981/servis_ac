@@ -69,8 +69,18 @@
                 </button>
             </form>
         @else
-            <div class="p-3 rounded-lg bg-[#DCFCE7] border border-[#86EFAC] text-[#15803D] text-xs font-semibold">
-                Status: Pekerjaan sedang berlangsung di lokasi masjid.
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg bg-[#DCFCE7] border border-[#86EFAC] text-xs">
+                <span class="text-[#15803D] font-semibold">
+                    Status: Pekerjaan sedang berlangsung di lokasi masjid.
+                </span>
+                @if($order->status === 'dikerjakan')
+                    <form method="POST" action="{{ route('technician.order.revert', $order->id) }}" onsubmit="return confirm('Apakah Anda yakin ingin membatalkan status tiba dan mengembalikannya ke status dijadwalkan?');" class="inline">
+                        @csrf
+                        <button type="submit" class="px-3 py-1.5 rounded-md border border-red-200 bg-white hover:bg-red-50 text-red-700 font-medium text-xs transition-colors cursor-pointer whitespace-nowrap self-start sm:self-auto">
+                            Batalkan Status Tiba
+                        </button>
+                    </form>
+                @endif
             </div>
         @endif
     </div>
@@ -96,20 +106,52 @@
 
         <!-- Pratinjau Galeri Mini -->
         @if($order->photos->isNotEmpty())
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
-                @foreach($order->photos as $photo)
-                    <div class="rounded-lg border border-gray-200 overflow-hidden bg-gray-50 relative">
-                        <img src="{{ $photo->url }}" alt="Bukti Servis" class="w-full h-24 object-cover">
-                        <div class="p-2 text-[11px]">
-                            <span class="inline-block px-1.5 py-0.5 rounded font-semibold uppercase {{ $photo->photo_type === 'sebelum' ? 'bg-amber-100 text-amber-800' : ($photo->photo_type === 'sesudah' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800') }}">
-                                {{ $photo->photo_type }}
-                            </span>
-                            @if($photo->caption)
-                                <p class="text-gray-600 truncate mt-1">{{ $photo->caption }}</p>
-                            @endif
+            <div class="space-y-2 pt-1">
+                <span class="text-xs font-semibold text-gray-700 block uppercase tracking-wider">
+                    Daftar Foto Bukti ({{ $order->photos->count() }}):
+                </span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    @foreach($order->photos as $photo)
+                        <div class="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-xs flex flex-col justify-between">
+                            <div class="relative cursor-pointer group bg-gray-100" @click="openLightbox('{{ $photo->url }}', '{{ addslashes($photo->caption ?? '') }}')">
+                                <img src="{{ $photo->url }}" alt="Bukti Servis" class="w-full h-36 object-cover group-hover:opacity-90 transition-opacity">
+                                <span class="absolute top-2 left-2 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-sm {{ $photo->photo_type === 'sebelum' ? 'bg-amber-100 text-amber-800 border border-amber-300' : ($photo->photo_type === 'sesudah' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-blue-100 text-blue-800 border border-blue-300') }}">
+                                    {{ $photo->photo_type }}
+                                </span>
+                                <span class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/60 text-white text-[10px] font-medium">
+                                    Ketuk untuk Perbesar
+                                </span>
+                            </div>
+
+                            <div class="p-3 text-xs space-y-2">
+                                <div class="flex items-start justify-between gap-2">
+                                    <p class="text-gray-900 font-medium leading-snug">
+                                        {{ $photo->caption ?: 'Tanpa keterangan' }}
+                                    </p>
+                                    <span class="text-[10px] text-gray-400 whitespace-nowrap">
+                                        {{ $photo->created_at->translatedFormat('d M, H:i') }}
+                                    </span>
+                                </div>
+
+                                <!-- Aksi CRUD: Edit & Hapus -->
+                                <div class="flex items-center justify-end gap-1.5 pt-2 border-t border-gray-100">
+                                    <button type="button" 
+                                            @click="openEditPhoto({{ $photo->id }}, '{{ $photo->photo_type }}', '{{ addslashes($photo->caption ?? '') }}')"
+                                            class="px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium text-xs transition-colors cursor-pointer">
+                                        Edit
+                                    </button>
+                                    <form method="POST" action="{{ route('technician.order.photo.destroy', $photo->id) }}" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus foto bukti servis ini?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="px-2.5 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-medium text-xs transition-colors cursor-pointer">
+                                            Hapus
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                @endforeach
+                    @endforeach
+                </div>
             </div>
         @endif
 
@@ -153,8 +195,24 @@
 
                 <input type="file" name="photo" id="compressedPhotoInput" class="hidden">
 
-                <!-- Pratinjau & Status Kompresi -->
-                <div x-show="compressionStatus" class="mt-2 text-xs font-medium text-[#1E3E34]" x-text="compressionStatus"></div>
+                <!-- Pratinjau Gambar yang Baru Dipilih -->
+                <div x-show="previewUrl" class="mt-3 p-3 bg-white border border-gray-200 rounded-lg space-y-2 text-left shadow-xs">
+                    <div class="flex items-center justify-between text-xs pb-1 border-b border-gray-100">
+                        <span class="font-semibold text-gray-900">Pratinjau Foto Terpilih:</span>
+                        <button type="button" @click="clearSelectedPhoto" class="text-xs text-red-600 hover:text-red-800 font-semibold cursor-pointer">
+                            Batal / Ganti
+                        </button>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <img :src="previewUrl" alt="Foto Terpilih" class="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-lg border border-gray-200 shadow-xs">
+                        <div class="space-y-1.5 text-xs flex-1">
+                            <span class="inline-block px-2 py-0.5 rounded font-semibold uppercase text-[10px]"
+                                  :class="photoType === 'sebelum' ? 'bg-amber-100 text-amber-800 border border-amber-300' : (photoType === 'sesudah' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-blue-100 text-blue-800 border border-blue-300')"
+                                  x-text="'Kategori: ' + photoType"></span>
+                            <p class="text-gray-600 text-[11px] leading-relaxed" x-text="compressionStatus"></p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Keterangan Singkat -->
@@ -176,7 +234,11 @@
     <!-- ========================================================================= -->
     <!-- LANGKAH 3: BIAYA TAMBAHAN SPAREPART (OPSIONAL) -->
     <!-- ========================================================================= -->
-    <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3" x-data="{ openSparepart: {{ $order->additional_amount > 0 ? 'true' : 'false' }} }">
+    <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3" 
+         x-data="{ 
+             hasSparepart: {{ $order->additional_amount > 0 ? 'true' : 'false' }},
+             showForm: false 
+         }">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <span class="w-6 h-6 rounded-md bg-gray-200 text-gray-700 flex items-center justify-center font-bold text-xs">
@@ -187,28 +249,48 @@
                     <span class="text-xs text-gray-500">Opsional jika ada biaya tak terduga</span>
                 </div>
             </div>
-            <button type="button" 
-                    @click="openSparepart = !openSparepart"
-                    class="text-xs font-semibold text-[#1E3E34] hover:underline cursor-pointer">
-                <span x-text="openSparepart ? 'Tutup' : '+ Buka Form'"></span>
-            </button>
+            @if($order->additional_amount == 0)
+                <button type="button" 
+                        @click="showForm = !showForm"
+                        class="text-xs font-semibold text-[#1E3E34] hover:underline cursor-pointer">
+                    <span x-text="showForm ? 'Tutup Form' : '+ Tambah Biaya'"></span>
+                </button>
+            @endif
         </div>
 
         @if($order->additional_amount > 0)
-            <div class="p-3.5 rounded-lg bg-gray-50 border border-gray-200 text-xs space-y-1">
+            <!-- Kotak Ringkasan Biaya Tambahan yang Tercatat -->
+            <div x-show="!showForm" class="p-3.5 rounded-lg bg-gray-50 border border-gray-200 text-xs space-y-2">
                 <div class="flex justify-between font-semibold text-gray-900">
                     <span>Biaya Tambahan Tercatat:</span>
-                    <span>Rp {{ number_format($order->additional_amount, 0, ',', '.') }}</span>
+                    <span class="text-[#1E3E34] text-sm">Rp {{ number_format($order->additional_amount, 0, ',', '.') }}</span>
                 </div>
-                <p class="text-gray-600">{{ $order->additional_notes }}</p>
+                <p class="text-gray-600 leading-relaxed">{{ $order->additional_notes }}</p>
+
+                <!-- Tombol Edit & Hapus Biaya Tambahan -->
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
+                    <button type="button" 
+                            @click="showForm = true"
+                            class="px-3 py-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-100 text-gray-800 font-semibold text-xs transition-colors cursor-pointer">
+                        Edit Biaya
+                    </button>
+                    <form method="POST" action="{{ route('technician.order.sparepart.destroy', $order->id) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus catatan biaya tambahan ini?');" class="inline">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="px-3 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 font-semibold text-xs transition-colors cursor-pointer">
+                            Hapus Biaya
+                        </button>
+                    </form>
+                </div>
             </div>
         @endif
 
-        <div x-show="openSparepart" class="pt-2 border-t border-gray-100">
+        <!-- Formulir Input / Edit Biaya Tambahan -->
+        <div x-show="showForm" class="pt-2 border-t border-gray-100">
             <form method="POST" action="{{ route('technician.order.sparepart', $order->id) }}" class="space-y-3">
                 @csrf
                 <div>
-                    <label for="additional_amount" class="block text-xs font-medium text-gray-800 mb-1">
+                    <label for="additional_amount" class="block text-xs font-semibold text-gray-800 mb-1">
                         Nominal Biaya Tambahan (Rp):
                     </label>
                     <input type="number" 
@@ -223,7 +305,7 @@
                 </div>
 
                 <div>
-                    <label for="additional_notes" class="block text-xs font-medium text-gray-800 mb-1">
+                    <label for="additional_notes" class="block text-xs font-semibold text-gray-800 mb-1">
                         Rincian Suku Cadang:
                     </label>
                     <textarea name="additional_notes" 
@@ -234,10 +316,17 @@
                               class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">{{ old('additional_notes', $order->additional_notes) }}</textarea>
                 </div>
 
-                <button type="submit" 
-                        class="w-full min-h-[44px] py-2 px-4 bg-gray-800 hover:bg-gray-900 text-white font-medium text-xs rounded-lg transition-colors cursor-pointer">
-                    Simpan Rincian Tambahan
-                </button>
+                <div class="flex items-center justify-end gap-2 pt-1">
+                    @if($order->additional_amount > 0)
+                        <button type="button" @click="showForm = false" class="px-3.5 py-2 rounded-lg border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 cursor-pointer">
+                            Batal
+                        </button>
+                    @endif
+                    <button type="submit" 
+                            class="px-4 py-2 bg-[#1E3E34] hover:bg-[#142B24] text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer">
+                        Simpan Rincian Tambahan
+                    </button>
+                </div>
             </form>
         </div>
     </div>
@@ -290,9 +379,70 @@
         </form>
     </div>
 
+    <!-- ========================================================================= -->
+    <!-- MODAL EDIT KETERANGAN & KATEGORI FOTO -->
+    <!-- ========================================================================= -->
+    <div x-show="showEditPhotoModal" x-cloak class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div @click.away="showEditPhotoModal = false" class="bg-white rounded-xl border border-gray-200 max-w-md w-full p-6 space-y-4 shadow-xl">
+            <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <h3 class="text-base font-bold text-gray-900">Perbarui Foto Bukti Servis</h3>
+                <button type="button" @click="showEditPhotoModal = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer">&times;</button>
+            </div>
+
+            <form :action="'/teknisi/order/foto/' + editPhotoId" method="POST" enctype="multipart/form-data" class="space-y-3.5">
+                @csrf
+                @method('PUT')
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-gray-800">Kategori Foto:</label>
+                    <select name="photo_type" x-model="editPhotoType" required class="w-full min-h-[42px] px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+                        <option value="sebelum">Sebelum Servis</option>
+                        <option value="sesudah">Sesudah Servis</option>
+                        <option value="sparepart">Sparepart / Komponen</option>
+                    </select>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-gray-800">Keterangan Foto:</label>
+                    <input type="text" name="caption" x-model="editPhotoCaption" placeholder="Contoh: AC Shaf Depan Kanan" class="w-full min-h-[42px] px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-gray-800">Ganti File Gambar (Opsional):</label>
+                    <input type="file" name="photo" accept="image/*" class="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
+                    <span class="text-[11px] text-gray-500 block">Pilih file baru jika ingin mengganti foto yang sudah ada.</span>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                    <button type="button" @click="showEditPhotoModal = false" class="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 cursor-pointer">
+                        Batal
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-lg bg-[#1E3E34] hover:bg-[#142B24] text-white text-xs font-semibold cursor-pointer transition-colors">
+                        Simpan Perubahan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL LIGHTBOX / PRATINJAU BESAR FOTO -->
+    <!-- ========================================================================= -->
+    <div x-show="activeLightboxUrl" x-cloak class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" @click.self="activeLightboxUrl = ''">
+        <div class="bg-white rounded-xl border border-gray-200 max-w-lg w-full overflow-hidden shadow-2xl">
+            <div class="p-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <span class="text-xs font-semibold text-gray-800 truncate" x-text="lightboxCaption || 'Foto Bukti Servis'"></span>
+                <button type="button" @click="activeLightboxUrl = ''" class="text-gray-500 hover:text-gray-800 text-lg font-bold cursor-pointer">&times;</button>
+            </div>
+            <div class="p-2 bg-black flex items-center justify-center">
+                <img :src="activeLightboxUrl" alt="Foto Penuh" class="max-h-[70vh] object-contain w-auto rounded">
+            </div>
+        </div>
+    </div>
+
 </div>
 
-<!-- Script Kompresi Foto Otomatis di Sisi Browser (Client-side HTML5 Canvas) -->
+<!-- Script Kompresi & Pratinjau Foto di Browser (Client-side HTML5 Canvas) -->
 <script>
 function technicianWork() {
     return {
@@ -301,6 +451,13 @@ function technicianWork() {
         isUploading: false,
         compressionStatus: '',
         compressedFile: null,
+        previewUrl: '',
+        activeLightboxUrl: '',
+        lightboxCaption: '',
+        showEditPhotoModal: false,
+        editPhotoId: null,
+        editPhotoType: 'sebelum',
+        editPhotoCaption: '',
 
         handleFileSelect(event) {
             const file = event.target.files[0];
@@ -348,11 +505,35 @@ function technicianWork() {
                         dataTransfer.items.add(this.compressedFile);
                         document.getElementById('compressedPhotoInput').files = dataTransfer.files;
 
+                        this.previewUrl = URL.createObjectURL(blob);
                         this.compressionStatus = `Foto siap! Ukuran disusutkan dari ${originalSizeMb} MB menjadi ${compressedSizeKb} KB (Hemat kuota).`;
                         this.readyToUpload = true;
                     }, 'image/jpeg', 0.75);
                 };
             };
+        },
+
+        clearSelectedPhoto() {
+            this.previewUrl = '';
+            this.compressionStatus = '';
+            this.readyToUpload = false;
+            this.compressedFile = null;
+            const camInput = document.getElementById('cameraInput');
+            if (camInput) camInput.value = '';
+            const compInput = document.getElementById('compressedPhotoInput');
+            if (compInput) compInput.value = '';
+        },
+
+        openLightbox(url, caption) {
+            this.activeLightboxUrl = url;
+            this.lightboxCaption = caption;
+        },
+
+        openEditPhoto(id, type, caption) {
+            this.editPhotoId = id;
+            this.editPhotoType = type;
+            this.editPhotoCaption = caption;
+            this.showEditPhotoModal = true;
         },
 
         handleSubmitPhoto() {

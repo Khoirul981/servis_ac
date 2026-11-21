@@ -86,6 +86,26 @@ class TechnicianController extends Controller
     }
 
     /**
+     * Batalkan Status Tiba (dikerjakan -> dijadwalkan).
+     */
+    public function revertWork(int $id): RedirectResponse
+    {
+        $order = Order::findOrFail($id);
+
+        if ($order->technician_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($order->status === Order::STATUS_DIKERJAKAN) {
+            $order->update([
+                'status' => Order::STATUS_DIJADWALKAN,
+            ]);
+        }
+
+        return back()->with('success', 'Status pengerjaan dibatalkan. Pesanan kembali ke status dijadwalkan.');
+    }
+
+    /**
      * Tombol 2: Unggah Foto Bukti Servis (Sebelum / Sesudah / Sparepart).
      */
     public function uploadPhoto(Request $request, int $id): RedirectResponse
@@ -120,6 +140,63 @@ class TechnicianController extends Controller
     }
 
     /**
+     * Perbarui Kategori & Keterangan Foto Bukti Servis.
+     */
+    public function updatePhoto(Request $request, int $photo_id): RedirectResponse
+    {
+        $photo = OrderPhoto::with('order')->findOrFail($photo_id);
+
+        if ($photo->order->technician_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'photo_type' => ['required', 'in:sebelum,sesudah,sparepart'],
+            'caption' => ['nullable', 'string', 'max:255'],
+            'photo' => ['nullable', 'image', 'max:5120'],
+        ], [
+            'photo.image' => 'File pengganti harus berupa gambar.',
+            'photo.max' => 'Ukuran foto maksimal 5 MB.',
+        ]);
+
+        $payload = [
+            'photo_type' => $validated['photo_type'],
+            'caption' => $validated['caption'] ?? null,
+        ];
+
+        if ($request->hasFile('photo')) {
+            if ($photo->photo_url && Storage::disk('public')->exists($photo->photo_url)) {
+                Storage::disk('public')->delete($photo->photo_url);
+            }
+            $payload['photo_url'] = $request->file('photo')->store('order_photos', 'public');
+        }
+
+        $photo->update($payload);
+
+        return back()->with('success', 'Data foto bukti berhasil diperbarui.');
+    }
+
+    /**
+     * Hapus Foto Bukti Servis.
+     */
+    public function destroyPhoto(int $photo_id): RedirectResponse
+    {
+        $photo = OrderPhoto::with('order')->findOrFail($photo_id);
+
+        if ($photo->order->technician_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($photo->photo_url && Storage::disk('public')->exists($photo->photo_url)) {
+            Storage::disk('public')->delete($photo->photo_url);
+        }
+
+        $photo->delete();
+
+        return back()->with('success', 'Foto bukti servis berhasil dihapus.');
+    }
+
+    /**
      * Tombol 3: Tambah Biaya Sparepart / Tindakan Tambahan.
      */
     public function addSparepart(Request $request, int $id): RedirectResponse
@@ -144,6 +221,25 @@ class TechnicianController extends Controller
         ]);
 
         return back()->with('success', 'Biaya tambahan sparepart berhasil dicatat.');
+    }
+
+    /**
+     * Hapus Biaya Tambahan Sparepart / Freon.
+     */
+    public function removeSparepart(int $id): RedirectResponse
+    {
+        $order = Order::findOrFail($id);
+
+        if ($order->technician_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $order->update([
+            'additional_amount' => 0,
+            'additional_notes' => null,
+        ]);
+
+        return back()->with('success', 'Catatan biaya tambahan sparepart berhasil dihapus.');
     }
 
     /**

@@ -294,4 +294,45 @@ class AdminTest extends TestCase
         $responseDelete->assertRedirect();
         $this->assertDatabaseMissing('users', ['id' => $tech->id]);
     }
+
+    /**
+     * Test admin dapat memperbarui dan menghapus foto bukti servis.
+     */
+    public function test_admin_can_update_and_delete_service_photo(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $order = Order::factory()->create();
+
+        $file = \Illuminate\Http\UploadedFile::fake()->image('bukti_admin.jpg');
+        $path = $file->store('order_photos', 'public');
+
+        $photo = \App\Models\OrderPhoto::create([
+            'order_id' => $order->id,
+            'photo_url' => $path,
+            'photo_type' => 'sebelum',
+            'caption' => 'Foto Dari Lapangan',
+        ]);
+
+        // Admin Update Photo
+        $responseUpdate = $this->actingAs($admin)->put('/admin/order/foto/' . $photo->id, [
+            'photo_type' => 'sesudah',
+            'caption' => 'Keterangan diperbarui oleh Admin',
+        ]);
+        $responseUpdate->assertRedirect();
+        $this->assertDatabaseHas('order_photos', [
+            'id' => $photo->id,
+            'photo_type' => 'sesudah',
+            'caption' => 'Keterangan diperbarui oleh Admin',
+        ]);
+
+        // Admin Delete Photo
+        $responseDelete = $this->actingAs($admin)->delete('/admin/order/foto/' . $photo->id);
+        $responseDelete->assertRedirect();
+        $this->assertDatabaseMissing('order_photos', [
+            'id' => $photo->id,
+        ]);
+        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing($path);
+    }
 }

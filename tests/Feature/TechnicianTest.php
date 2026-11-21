@@ -197,4 +197,94 @@ class TechnicianTest extends TestCase
         // Tanggal servis terakhir masjid terupdate
         $this->assertEquals(now()->toDateString(), $masjid->fresh()->last_service_date->toDateString());
     }
+
+    /**
+     * Test teknisi dapat memperbarui dan menghapus foto bukti servis.
+     */
+    public function test_technician_can_update_and_delete_service_photo(): void
+    {
+        Storage::fake('public');
+
+        $tech = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
+
+        $order = Order::factory()->create([
+            'technician_id' => $tech->id,
+            'status' => Order::STATUS_DIKERJAKAN,
+        ]);
+
+        $file = UploadedFile::fake()->image('bukti_lama.jpg');
+        $path = $file->store('order_photos', 'public');
+
+        $photo = OrderPhoto::create([
+            'order_id' => $order->id,
+            'photo_url' => $path,
+            'photo_type' => 'sebelum',
+            'caption' => 'Foto Awal',
+        ]);
+
+        // 1. Update Photo
+        $responseUpdate = $this->actingAs($tech)->put('/teknisi/order/foto/' . $photo->id, [
+            'photo_type' => 'sesudah',
+            'caption' => 'Foto Setelah Perbaikan Bersih',
+        ]);
+        $responseUpdate->assertRedirect();
+        $this->assertDatabaseHas('order_photos', [
+            'id' => $photo->id,
+            'photo_type' => 'sesudah',
+            'caption' => 'Foto Setelah Perbaikan Bersih',
+        ]);
+
+        // 2. Delete Photo
+        $responseDelete = $this->actingAs($tech)->delete('/teknisi/order/foto/' . $photo->id);
+        $responseDelete->assertRedirect();
+        $this->assertDatabaseMissing('order_photos', [
+            'id' => $photo->id,
+        ]);
+        Storage::disk('public')->assertMissing($path);
+    }
+
+    /**
+     * Test teknisi dapat membatalkan status tiba (kembali ke dijadwalkan).
+     */
+    public function test_technician_can_revert_start_work(): void
+    {
+        $tech = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
+
+        $order = Order::factory()->create([
+            'technician_id' => $tech->id,
+            'status' => Order::STATUS_DIKERJAKAN,
+        ]);
+
+        $response = $this->actingAs($tech)->post('/teknisi/order/' . $order->id . '/batal-mulai');
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => Order::STATUS_DIJADWALKAN,
+        ]);
+    }
+
+    /**
+     * Test teknisi dapat menghapus catatan biaya tambahan sparepart.
+     */
+    public function test_technician_can_remove_sparepart(): void
+    {
+        $tech = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
+
+        $order = Order::factory()->create([
+            'technician_id' => $tech->id,
+            'status' => Order::STATUS_DIKERJAKAN,
+            'additional_amount' => 150000,
+            'additional_notes' => 'Tambah Freon R32',
+        ]);
+
+        $response = $this->actingAs($tech)->delete('/teknisi/order/' . $order->id . '/sparepart');
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'additional_amount' => 0,
+            'additional_notes' => null,
+        ]);
+    }
 }

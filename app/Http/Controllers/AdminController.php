@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\OrderPhoto;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class AdminController extends Controller
@@ -159,5 +161,54 @@ class AdminController extends Controller
         $whatsappUrl = "https://wa.me/{$cleanPhone}?text={$waText}";
 
         return view('admin.receipt', compact('order', 'whatsappUrl', 'metodeText'));
+    }
+
+    /**
+     * Perbarui Kategori & Keterangan Foto Bukti Servis oleh Admin.
+     */
+    public function updatePhoto(Request $request, int $photo_id): RedirectResponse
+    {
+        $photo = OrderPhoto::findOrFail($photo_id);
+
+        $validated = $request->validate([
+            'photo_type' => ['required', 'in:sebelum,sesudah,sparepart'],
+            'caption' => ['nullable', 'string', 'max:255'],
+            'photo' => ['nullable', 'image', 'max:5120'],
+        ], [
+            'photo.image' => 'File pengganti harus berupa gambar.',
+            'photo.max' => 'Ukuran foto maksimal 5 MB.',
+        ]);
+
+        $payload = [
+            'photo_type' => $validated['photo_type'],
+            'caption' => $validated['caption'] ?? null,
+        ];
+
+        if ($request->hasFile('photo')) {
+            if ($photo->photo_url && Storage::disk('public')->exists($photo->photo_url)) {
+                Storage::disk('public')->delete($photo->photo_url);
+            }
+            $payload['photo_url'] = $request->file('photo')->store('order_photos', 'public');
+        }
+
+        $photo->update($payload);
+
+        return back()->with('success', 'Data foto bukti berhasil diperbarui.');
+    }
+
+    /**
+     * Hapus Foto Bukti Servis oleh Admin.
+     */
+    public function destroyPhoto(int $photo_id): RedirectResponse
+    {
+        $photo = OrderPhoto::findOrFail($photo_id);
+
+        if ($photo->photo_url && Storage::disk('public')->exists($photo->photo_url)) {
+            Storage::disk('public')->delete($photo->photo_url);
+        }
+
+        $photo->delete();
+
+        return back()->with('success', 'Foto bukti servis berhasil dihapus.');
     }
 }

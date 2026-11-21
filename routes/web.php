@@ -47,6 +47,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/users', [MasterUserController::class, 'store'])->name('users.store');
     Route::put('/users/{id}', [MasterUserController::class, 'update'])->name('users.update');
     Route::delete('/users/{id}', [MasterUserController::class, 'destroy'])->name('users.destroy');
+
+    // Manajemen Foto Bukti Servis oleh Admin
+    Route::put('/order/foto/{photo_id}', [AdminController::class, 'updatePhoto'])->name('order.photo.update');
+    Route::delete('/order/foto/{photo_id}', [AdminController::class, 'destroyPhoto'])->name('order.photo.destroy');
 });
 
 // Dashboard Mobile Teknisi Lapangan (Role: technician)
@@ -54,7 +58,11 @@ Route::middleware(['auth', 'role:technician'])->prefix('teknisi')->name('technic
     Route::get('/', [TechnicianController::class, 'index'])->name('dashboard');
     Route::get('/order/{id}', [TechnicianController::class, 'show'])->name('order.show');
     Route::post('/order/{id}/mulai', [TechnicianController::class, 'startWork'])->name('order.start');
+    Route::post('/order/{id}/batal-mulai', [TechnicianController::class, 'revertWork'])->name('order.revert');
     Route::post('/order/{id}/foto', [TechnicianController::class, 'uploadPhoto'])->name('order.photo');
+    Route::put('/order/foto/{photo_id}', [TechnicianController::class, 'updatePhoto'])->name('order.photo.update');
+    Route::delete('/order/foto/{photo_id}', [TechnicianController::class, 'destroyPhoto'])->name('order.photo.destroy');
     Route::post('/order/{id}/sparepart', [TechnicianController::class, 'addSparepart'])->name('order.sparepart');
+    Route::delete('/order/{id}/sparepart', [TechnicianController::class, 'removeSparepart'])->name('order.sparepart.destroy');
     Route::post('/order/{id}/selesai', [TechnicianController::class, 'completeWork'])->name('order.complete');
 });

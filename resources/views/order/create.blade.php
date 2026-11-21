@@ -62,13 +62,29 @@
      ">
 
     <!-- Header Formulir -->
-    <div class="text-center mb-6">
+    <div class="text-center mb-5">
         <h1 class="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
             Pemesanan Servis AC Masjid
         </h1>
         <p class="text-sm text-gray-600 mt-1 leading-relaxed">
             Formulir permohonan perawatan pendingin ruang ibadah untuk Pengurus DKM dan Marbot.
         </p>
+    </div>
+
+    <!-- Pilihan Mode: Masjid Terdaftar / Masjid Baru (Di Atas Card) -->
+    <div class="grid grid-cols-2 p-1 bg-gray-200/80 rounded-xl mb-4 text-xs sm:text-sm font-medium">
+        <button type="button" 
+                @click="isNewMasjid = '0'" 
+                :class="isNewMasjid === '0' ? 'bg-[#1E3E34] text-white shadow-sm font-semibold' : 'text-gray-700 hover:text-gray-900'"
+                class="min-h-[44px] py-2.5 px-3 rounded-lg transition-all cursor-pointer text-center flex items-center justify-center">
+            Cari Masjid Terdaftar
+        </button>
+        <button type="button" 
+                @click="isNewMasjid = '1'; selectedMasjidId = ''; masjidQuery = '';" 
+                :class="isNewMasjid === '1' ? 'bg-[#1E3E34] text-white shadow-sm font-semibold' : 'text-gray-700 hover:text-gray-900'"
+                class="min-h-[44px] py-2.5 px-3 rounded-lg transition-all cursor-pointer text-center flex items-center justify-center">
+            + Daftarkan Masjid Baru
+        </button>
     </div>
 
     <!-- Kartu Formulir Solid (Tanpa Glassmorphism) -->
@@ -86,26 +102,10 @@
 
             <!-- BAGIAN 1: LOKASI MASJID -->
             <div class="space-y-4">
-                <div class="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div class="pb-2 border-b border-gray-100">
                     <h2 class="text-base font-semibold text-gray-900">
                         1. Lokasi Masjid atau Musholla
                     </h2>
-
-                    <!-- Pilihan Masjid Baru / Terdaftar -->
-                    <div class="flex bg-gray-100 p-0.5 rounded-lg text-xs font-medium">
-                        <button type="button" 
-                                @click="isNewMasjid = '0'" 
-                                :class="isNewMasjid === '0' ? 'bg-white text-gray-900 shadow-xs font-semibold' : 'text-gray-500 hover:text-gray-900'"
-                                class="px-2.5 py-1 rounded-md transition-all cursor-pointer">
-                            Cari Terdaftar
-                        </button>
-                        <button type="button" 
-                                @click="isNewMasjid = '1'; selectedMasjidId = ''; masjidQuery = '';" 
-                                :class="isNewMasjid === '1' ? 'bg-white text-gray-900 shadow-xs font-semibold' : 'text-gray-500 hover:text-gray-900'"
-                                class="px-2.5 py-1 rounded-md transition-all cursor-pointer">
-                            + Masjid Baru
-                        </button>
-                    </div>
                 </div>
 
                 <!-- Input Pencarian Masjid Lama -->
@@ -132,14 +132,6 @@
                                 <span class="block text-xs text-gray-500 truncate mt-0.5" x-text="item.address"></span>
                             </button>
                         </template>
-                    </div>
-
-                    <div class="pt-1">
-                        <button type="button" 
-                                @click="isNewMasjid = '1'; selectedMasjidId = ''; masjidQuery = '';"
-                                class="text-xs font-medium text-[#1E3E34] hover:underline cursor-pointer">
-                            + Daftarkan nama masjid baru ini jika belum ada di daftar
-                        </button>
                     </div>
 
                     @error('masjid_id')
