@@ -1,58 +1,87 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🕌 Sistem Manajemen Servis AC Masjid & Musholla (Versi V2)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistem informasi operasional perawatan dan perbaikan AC masjid yang disederhanakan (*anti-overengineered*), berfokus pada kemudahan penggunaan bagi pengurus DKM/marbot (usia 40+), kemudahan teknisi lapangan (gaya aplikasi ojek online), dan meja pengelola satu pintu bagi admin.
 
-## About Laravel
+Repository GitHub: [https://github.com/Khoirul981/servis_ac](https://github.com/Khoirul981/servis_ac)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 🌟 Fitur Utama Berdasarkan Peran
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### 1. Pengurus DKM / Marbot (Pemesan - Tanpa Login)
+- **Akses Publik**: Buka langsung di browser HP tanpa perlu daftar atau login.
+- **Pencarian Masjid Pintar**: Dilengkapi pencarian otomatis (*autocomplete*) untuk masjid lama yang pernah servis atau form instan untuk masjid baru.
+- **Pilihan Keluhan Sentuh**: Tombol kartu sentuh besar (*Cuci Rutin*, *Kurang Dingin/Bocor*, *Mati Total*).
+- **Counter Unit AC**: Tombol sentuh `+` dan `−` besar ramah jempol.
+- **Estimasi Biaya Real-Time**: Perkiraan total biaya langsung tampil saat memilih keluhan dan jumlah AC.
+- **Perlindungan Anti-Spam**: *Honeypot field* & *Rate limiting* (maksimal 3 pesanan/jam per nomor WA).
+- **Integrasi WhatsApp**: Tombol satu klik untuk konfirmasi rincian pesanan ke WhatsApp Admin.
 
-## Learning Laravel
+### 2. Teknisi Lapangan (Mobile-Friendly Dashboard)
+- **Tampilan Khusus Smartphone**: Optimal di layar HP (360px – 420px).
+- **Navigasi 1-Sentuh**: Tombol **Google Maps** langsung membuka rute GPS ke masjid.
+- **Komunikasi Cepat**: Tombol **WhatsApp DKM** langsung membuka chat dengan kontak pengurus.
+- **Alur Kerja 4 Langkah di Lokasi**:
+  1. `[ 🟢 Saya Sudah Tiba & Mulai Bekerja ]` (Status $\rightarrow$ `dikerjakan`)
+  2. `[ 📸 Kamera Foto Bukti ]` (Kompresi foto otomatis di browser HP $\le$ 500 KB agar hemat kuota seluler)
+  3. `[ ➕ Tambah Biaya Sparepart/Freon ]` (Input komponen & biaya jika ada kerusakan tak terduga)
+  4. `[ ✅ Pekerjaan Selesai ]` (Kunci pengaman: wajib ada minimal 1 foto bukti $\rightarrow$ Status $\rightarrow$ `menunggu_bayar`)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### 3. Meja Pengelola Admin (Pusat Kendali Operasional)
+- **Papan Operasional 4 Tab Status**:
+  - `📥 Pesanan Masuk`: Order baru dari web yang butuh penugasan teknisi & jam kedatangan.
+  - `🚀 Sedang Berjalan`: Memantau teknisi mana yang sedang bertugas di lokasi masjid.
+  - `💰 Menunggu Bayar`: Servis fisik beres, siap diverifikasi pembayarannya.
+  - `✅ Riwayat Beres`: Arsip seluruh servis yang telah lunas.
+- **Verifikasi Pelunasan**: Satu klik verifikasi metode bayar (Transfer Bank, QRIS, Tunai titip teknisi).
+- **Kuitansi Resmi & Kirim WA**: Halaman kuitansi resmi siap cetak + tombol kirim teks kuitansi otomatis ke nomor WhatsApp DKM.
+- **Master Data**: Kelola data masjid, penambahan unit AC per ruangan, dan akun petugas.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## 👥 Akun Uji Coba Default
 
-## Agentic Development
+| Peran | Email / Nomor Login | Kata Sandi | Akses Halaman |
+|---|---|---|---|
+| **Admin Pengelola** | `admin@servisac.com` *(atau `081234567890`)* | `password123` | `/admin` |
+| **Teknisi Lapangan 1** | `budi@servisac.com` *(atau `081298765432`)* | `password123` | `/teknisi` |
+| **Teknisi Lapangan 2** | `agus@servisac.com` *(atau `081311223344`)* | `password123` | `/teknisi` |
+| **DKM / Marbot** | *Tanpa Login* | - | `/` atau `/pesan` |
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+---
+
+## 🚀 Panduan Menjalankan di Komputer Lokal (Laragon)
+
+### 1. Prasyarat
+- **PHP $\ge$ 8.3**
+- **Composer**
+- **Node.js & NPM**
+- **MySQL 8.0** (Laragon sudah otomatis menyediakannya)
+
+### 2. Langkah Menjalankan:
+1. Buka aplikasi **Laragon**, lalu klik tombol **Start All** (pastikan service MySQL dan Apache menyala).
+2. Buka terminal di folder proyek (`C:\Folder-AplikasiAC\servis_ac`).
+3. Jalankan server Laravel:
+   ```bash
+   php artisan serve
+   ```
+4. Buka browser Anda:
+   - **Form Pemesanan DKM (Halaman Depan)**: `http://localhost:8000/`
+   - **Halaman Login Petugas**: `http://localhost:8000/login`
+
+---
+
+## 🧪 Menjalankan Pengujian Otomatis
+
+Seluruh logika alur kerja dilindungi oleh 30 pengujian otomatis (*Feature Tests*):
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+php artisan test
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Semua pengujian mencakup:
+- Pengujian autentikasi & pemisahan peran admin/teknisi.
+- Pengujian form publik pemesanan, honeypot, dan rate limiter.
+- Pengujian lembar kerja mobile teknisi dan kamera foto.
+- Pengujian meja admin, penugasan jadwal, dan verifikasi pelunasan kuitansi.
+- Pengujian simulasi siklus penuh (*End-to-End Workflow*).
