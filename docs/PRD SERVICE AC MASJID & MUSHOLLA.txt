@@ -1,0 +1,236 @@
+# Product Requirements Document (PRD)
+## Sistem Manajemen Servis AC Masjid (Versi Ramah Pengguna / V2)
+
+| Dokumen | Keterangan |
+| **Target Pengguna** | Pengurus DKM Masjid, Marbot, Teknisi Lapangan, Admin Pengelola |
+| **Tujuan Utama** | Menyederhanakan operasional, memangkas birokrasi, dan ramah bapak-bapak/awam (*elderly & mobile-friendly*) |
+
+---
+
+## 1. Latar Belakang & Masalah (*Problem Statement*)
+
+### 1.1. Masalah pada Sistem Sebelumnya (V1)
+1. **Terlalu Rumit (*Over-Engineered*)**: Memiliki 12 status berbelit-belit dan 4 database MySQL terpisah yang menyulitkan perawatan dan hosting.
+2. **Birokrasi Berlapis (*Bottleneck*)**: Peran "Manager" mewajibkan persetujuan berulang kali (SPK, Invoice, Pembayaran, hingga *Dual Confirmation*), padahal di lapangan tim pengelola sering kali hanya terdiri dari 1–2 orang.
+3. **Bahasa & Istilah Terlalu Kaku**: Istilah seperti *Dual Confirmation, SPK Approval, Fee Review, State Transition* sangat membingungkan pengguna awam dan pengurus DKM masjid.
+4. **Antarmuka Tidak Ramah Usia 40+**: Desain visual dengan font tipis, tombol kecil, dan transparansi berlebih menyulitkan bapak-bapak yang mengoperasikan aplikasi via ponsel.
+
+### 1.2. Solusi yang Diusulkan (V2)
+1. **Pangkas Peran Menjadi 3 Aktor Utama**: Tamu/DKM, Admin/Pengelola, dan Teknisi Lapangan.
+2. **1 Database Terpadu**: Menggabungkan seluruh data operasional ke dalam satu basis data yang ringan, cepat, dan mudah di-backup.
+3. **Alur 4 Langkah Sederhana**: Pesanan Masuk $\rightarrow$ Teknisi Bekerja $\rightarrow$ Cek Hasil & Biaya $\rightarrow$ Bayar & Selesai.
+4. **Prinsip Antarmuka Ramah Lansia/Awam**: Tombol super besar, kontras warna tegas, navigasi satu jempol, dan terintegrasi langsung dengan WhatsApp & Google Maps.
+
+---
+
+## 2. Target Persona Pengguna (*User Persona*)
+
+### Persona 1: Pengurus DKM / Marbot (Pemesan)
+- **Karakteristik**: Pria usia 40–65 tahun, tidak terbiasa dengan aplikasi web rumit, sangat aktif di WhatsApp.
+- **Kebutuhan**: Ingin servis AC masjid dengan cepat, tanpa harus membuat akun/password, dan langsung tahu berapa biayanya serta kapan teknisi datang.
+
+### Persona 2: Teknisi Lapangan (Eksekutor)
+- **Karakteristik**: Bekerja di lapangan, tangan sering kotor/basah, menggunakan HP di bawah cahaya terang.
+- **Kebutuhan**: Tombol kerja yang simpel seperti aplikasi ojek online (Terima tugas $\rightarrow$ Navigasi Maps $\rightarrow$ Buka kamera foto AC $\rightarrow$ Selesai).
+
+### Persona 3: Admin / Pengelola (Pusat Kendali)
+- **Karakteristik**: Mengurus penjadwalan, penetapan teknisi, dan pengecekan uang masuk.
+- **Kebutuhan**: Tampilan meja layanan (*dashboard*) praktis tanpa perlu bolak-balik logout untuk menyetujui dokumen.
+
+---
+
+## 3. Prinsip Desain Produk (*Core Design Principles*)
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                        PRINSIP DESAIN V2                               │
+│                                                                        │
+│  [ Bebas Jargon ]     Gunakan istilah umum: "Surat Tugas", "Rincian    │
+│                       Biaya", "Uang Masuk", "Beres".                   │
+│                                                                        │
+│  [ Tombol Besar ]     Ukuran tombol minimal 48px, ramah sentuhan       │
+│                       jempol, tulisan tegas tanpa ikon ambigu.         │
+│                                                                        │
+│  [ Satu Database ]    1 database MySQL/SQLite terpadu, tidak ada       │
+│                       partisi multi-db yang membingungkan.             │
+│                                                                        │
+│  [ Terhubung WA ]     Tombol pintas WhatsApp untuk konfirmasi order,   │
+│                       jadwal teknisi, dan kirim kuitansi.              │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. Peran Pengguna & Hak Akses (*Simplified RBAC*)
+
+Sistem hanya memiliki **3 peran**:
+
+| Peran | Autentikasi | Wewenang Utama |
+|---|---|---|
+| **1. Pemesan (DKM / Tamu)** | **Tanpa Login** (Publik) | - Mengisi formulir servis di web.<br>- Mencari masjid lama atau mendaftarkan masjid baru.<br>- Menerima kabar via WhatsApp. |
+| **2. Admin / Pengelola** | Login (Email & Password) | - Menerima & mengatur jadwal pesanan.<br>- Menugaskan teknisi.<br>- Menyetujui penyesuaian biaya tambahan.<br>- Mengecek uang masuk (Transfer/QRIS/Tunai).<br>- Mengelola master data masjid & unit AC. |
+| **3. Teknisi Lapangan** | Login Simpel (Email/No HP) | - Melihat tugas hari ini di HP.<br>- Buka lokasi masjid via Google Maps.<br>- Mengunggah foto hasil servis AC.<br>- Melaporkan biaya tambahan suku cadang (jika ada). |
+
+---
+
+## 5. Alur Kerja Produk (*Simplified Workflow*)
+
+### 5.1. Diagram Alur Utama
+
+```mermaid
+flowchart TD
+    A["1. DKM Pesan Servis<br>(Form Publik / WA)"] --> B["2. Pesanan Masuk<br>(Status: pesanan_baru)"]
+    B -->|Admin Tentukan Jadwal & Pilih Teknisi| C["3. Teknisi Ditugaskan<br>(Status: dijadwalkan)"]
+    C -->|Teknisi Klik Mulai Kerja di Lokasi| D["4. Sedang Dikerjakan<br>(Status: dikerjakan)"]
+    D -->|Teknisi Unggah Foto Bukti & Catatan| E["5. Menunggu Pembayaran<br>(Status: menunggu_bayar)"]
+    
+    %% Cabang Biaya Tambahan
+    E -->|Ada Tambahan Sparepart| F{Cek Biaya}
+    F -->|Admin Setujui Tambahan| G["Total Biaya Diperbarui"]
+    G --> E
+    
+    E -->|Admin Cek Uang Masuk / Bukti Bayar| H["6. SELESAI & LUNAS<br>(Status: selesai)"]
+    H -->|Sistem Kirim Kuitansi ke WA DKM| I["Selesai & Arsip"]
+```
+
+### 5.2. Definisi 4 Status Utama Sistem:
+1. **`pesanan_baru`**: Permintaan servis dari masjid baru saja masuk, belum ditentukan teknisi dan jam kedatangannya.
+2. **`dijadwalkan` / `dikerjakan`**: Teknisi sudah ditugaskan dan pekerjaan sedang berlangsung di lokasi.
+3. **`menunggu_bayar`**: Pekerjaan fisik selesai, foto bukti sudah diunggah teknisi, menunggu pelunasan tagihan.
+4. **`selesai`**: Pembayaran sudah diterima Admin (Transfer/QRIS/Tunai), kuitansi resmi terbit, data tersimpan rapi.
+
+---
+
+## 6. Spesifikasi Kebutuhan Fitur (*Feature Specifications*)
+
+### 6.1. Modul Pemesan (Form Publik Tamu)
+- **Input Fleksibel**:
+  - Kolom nama masjid dilengkapi pencarian otomatis (*auto-complete*) jika masjid sudah terdaftar.
+  - Jika masjid baru, pemesan dapat langsung mengetikkan nama masjid dan alamatnya.
+- **Pilihan Keluhan Simpel**:
+  - Pilihan kotak/tombol sentuh: "Cuci Rutin", "Tidak Dingin/Bocor Air", "Mati Total".
+  - Input jumlah unit AC (tombol `+` dan `-`).
+- **Nomor Kontak**:
+  - Validasi nomor WhatsApp (format `08xxxxxxxxxx`).
+- **Pencegahan Bot/Spam**:
+  - Perlindungan *Honeypot* (kolom jebakan tersembunyi untuk bot).
+  - Pembatasan pengiriman form (maksimal 3 kali dalam 1 jam per nomor).
+
+### 6.2. Modul Teknisi Lapangan (Mobile-Friendly Dashboard)
+- **Tampilan Beranda Tugas**:
+  - Menampilkan kartu tugas hari ini: Nama Masjid, Alamat, Jam Janji, Jumlah Unit AC, dan Kontak DKM.
+  - Tombol **"Buka Peta (Google Maps)"** langsung membuka navigasi GPS.
+  - Tombol **"Hubungi DKM (WhatsApp)"** langsung membuka chat dengan nomor kontak pengurus.
+- **Langkah Kerja Teknisi**:
+  - Tombol 1: `[ 🟢 Saya Sudah Tiba & Mulai Bekerja ]`
+  - Tombol 2: `[ 📸 Ambil Foto Sebelum & Sesudah ]` (langsung panggil kamera ponsel).
+  - Tombol 3: `[ ➕ Ada Tambahan Sparepart/Freon ]` (opsional jika ada biaya tak terduga).
+  - Tombol 4: `[ ✅ Pekerjaan Selesai ]` (wajib ada minimal 1 foto bukti sebelum tombol ini aktif).
+
+### 6.3. Modul Admin / Meja Pengelola
+- **Papan Kendali Utama (*Operations Board*)**:
+  - Tab 1: **Pesanan Masuk** (daftar order baru yang butuh penugasan teknisi).
+  - Tab 2: **Sedang Berjalan** (pantau teknisi mana yang sedang bekerja di lokasi).
+  - Tab 3: **Menunggu Uang Masuk** (daftar pesanan selesai yang belum dibayar).
+  - Tab 4: **Riwayat Beres** (arsip seluruh servis yang sudah lunas).
+- **Penugasan Cepat**:
+  - Pilih teknisi dari dropdown $\rightarrow$ tentukan jam servis $\rightarrow$ klik "Tugaskan".
+- **Verifikasi Pembayaran & Kuitansi**:
+  - Memilih metode bayar: Transfer Bank, QRIS, atau Tunai (titip lewat teknisi).
+  - Tombol satu klik: **"Verifikasi Lunas & Terbitkan Kuitansi"**.
+  - Tombol **"Kirim Kuitansi ke WA DKM"**.
+- **Master Data**:
+  - Manajemen data masjid (alamat, daftar AC, riwayat tanggal servis terakhir).
+  - Manajemen data unit AC per masjid (merk, tipe PK, lokasi ruangan).
+  - Manajemen akun teknisi dan admin.
+
+---
+
+## 7. Desain Skema Basis Data Ramping (*Unified Single Database*)
+
+Cukup menggunakan **1 Database** dengan 5 tabel utama:
+
+```mermaid
+erDiagram
+    USERS ||--o{ ORDERS : "dikerjakan / dibuat"
+    MASJIDS ||--o{ AC_UNITS : "memiliki"
+    MASJIDS ||--o{ ORDERS : "lokasi servis"
+    ORDERS ||--o{ ORDER_PHOTOS : "memiliki bukti"
+    ORDERS ||--o{ ORDER_ITEMS : "rincian layanan"
+
+    USERS {
+        bigint id PK
+        string name
+        string phone
+        string role "admin / technician"
+        string password
+    }
+
+    MASJIDS {
+        bigint id PK
+        string name
+        text address
+        string pic_name "nama dkm / marbot"
+        string pic_phone "no wa pengurus"
+        date last_service_date
+    }
+
+    AC_UNITS {
+        bigint id PK
+        bigint masjid_id FK
+        string room_name "misal: Ruang Utama, Shaf Depan"
+        string ac_type "1PK, 2PK, dll"
+        string brand
+    }
+
+    ORDERS {
+        bigint id PK
+        string order_number "SO-20261121-001"
+        bigint masjid_id FK
+        bigint technician_id FK "nullable"
+        string status "pesanan_baru, dijadwalkan, dikerjakan, menunggu_bayar, selesai, batal"
+        date service_date
+        decimal base_amount "biaya awal"
+        decimal additional_amount "biaya tambahan sparepart"
+        text additional_notes
+        string payment_method "transfer / qris / cash"
+        datetime paid_at
+        text dkm_complaint
+    }
+
+    ORDER_PHOTOS {
+        bigint id PK
+        bigint order_id FK
+        string photo_url
+        string photo_type "sebelum / sesudah / sparepart"
+        datetime created_at
+    }
+```
+
+---
+
+## 8. Kebutuhan Non-Fungsional (*Non-Functional Requirements*)
+
+1. **Responsivitas Ponsel (*Mobile First*)**: 
+   - Antarmuka teknisi dan pemesan DKM harus 100% mulus dibuka di layar HP (lebar 360px – 420px).
+2. **Keterbacaan Visual (*Accessibility & Senior Friendly*)**:
+   - Ukuran huruf utama minimal 16px (1rem), judul minimal 20px–24px.
+   - Kontras warna tinggi (teks hitam pekat `#1f2937` di atas latar terang `#ffffff` / `#f3f4f6`).
+   - Tombol aksi utama minimal tinggi 48px dengan radius rounded yang tegas.
+3. **Kecepatan & Keandalan**:
+   - Waktu muat halaman di jaringan seluler 4G/3G di bawah 1,5 detik.
+   - Upload foto otomatis dikompresi di sisi browser sebelum dikirim ke server (maksimal 1 MB per foto) agar hemat kuota teknisi.
+
+---
+
+## 9. Rencana Tahapan Pengembangan (*Development Roadmap*)
+
+| Fase | Target Pekerjaan | Estimasi Output |
+|---|---|---|
+| **Fase 1: Setup Fondasi Baru** | Inisiasi folder baru, konfigurasi 1 database terpadu, migrasi tabel inti, dan sistem autentikasi (Admin & Teknisi). | Struktur proyek bersih, koneksi DB lancar. |
+| **Fase 2: Alur Pemesan & Teknisi** | Pembuatan form publik pemesanan DKM (auto-complete masjid) dan dashboard mobile teknisi (Maps, Kamera Foto, Selesai). | Pemesanan dan eksekusi lapangan sudah bisa dicoba di HP. |
+| **Fase 3: Meja Pengelola Admin** | Papan kendali admin (jadwal teknisi, verifikasi uang masuk, cetak kuitansi PDF/WA). | Seluruh siklus pesanan dari pesan hingga lunas selesai 100%. |
+| **Fase 4: Testing & Uji Coba Lapangan** | Uji coba pengisian langsung oleh bapak-bapak/marbot dan simulasi teknisi lapangan. | Sistem siap pakai (*Go-Live*). |
+
+---
+*Dokumen PRD ini menjadi acuan spesifikasi resmi untuk pembangunan proyek versi baru.*
