@@ -1,12 +1,15 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\OrderController;
 use Illuminate\Support\Facades\Route;
 
-// Halaman Beranda Publik (Akan diarahkan ke form pemesanan DKM di Fase 3)
-Route::get('/', function () {
-    return redirect()->route('login');
-})->name('home');
+// Halaman Beranda Publik & Form Pemesanan Servis DKM (Tanpa Login)
+Route::get('/', [OrderController::class, 'create'])->name('home');
+Route::get('/pesan', [OrderController::class, 'create'])->name('order.create');
+Route::post('/pesan', [OrderController::class, 'store'])->name('order.store');
+Route::get('/pesan/sukses/{order_number}', [OrderController::class, 'success'])->name('order.success');
+Route::get('/api/masjid-autocomplete', [OrderController::class, 'searchMasjid'])->name('api.masjid.autocomplete');
 
 // Autentikasi Pengguna (Admin & Teknisi)
 Route::middleware('guest')->group(function () {
