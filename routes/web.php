@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\MasterMasjidController;
+use App\Http\Controllers\MasterUserController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\TechnicianController;
 use Illuminate\Support\Facades\Route;
@@ -20,14 +23,25 @@ Route::middleware('guest')->group(function () {
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
 
-// Meja Pengelola Admin
+// Meja Pengelola Admin (Role: admin)
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('/', function () {
-        return view('admin.dashboard');
-    })->name('dashboard');
+    Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::post('/order/{id}/assign', [AdminController::class, 'assignTechnician'])->name('order.assign');
+    Route::post('/order/{id}/pay', [AdminController::class, 'confirmPayment'])->name('order.pay');
+    Route::post('/order/{id}/cancel', [AdminController::class, 'cancelOrder'])->name('order.cancel');
+    Route::get('/order/{id}/receipt', [AdminController::class, 'receipt'])->name('order.receipt');
+
+    // Master Masjid & Unit AC
+    Route::get('/masjids', [MasterMasjidController::class, 'index'])->name('masjids.index');
+    Route::get('/masjids/{id}', [MasterMasjidController::class, 'show'])->name('masjids.show');
+    Route::post('/masjids/{id}/ac', [MasterMasjidController::class, 'storeAcUnit'])->name('masjids.ac.store');
+
+    // Master Petugas
+    Route::get('/users', [MasterUserController::class, 'index'])->name('users.index');
+    Route::post('/users', [MasterUserController::class, 'store'])->name('users.store');
 });
 
-// Dashboard Mobile Teknisi Lapangan
+// Dashboard Mobile Teknisi Lapangan (Role: technician)
 Route::middleware(['auth', 'role:technician'])->prefix('teknisi')->name('technician.')->group(function () {
     Route::get('/', [TechnicianController::class, 'index'])->name('dashboard');
     Route::get('/order/{id}', [TechnicianController::class, 'show'])->name('order.show');
