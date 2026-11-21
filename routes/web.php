@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\TechnicianController;
 use Illuminate\Support\Facades\Route;
 
 // Halaman Beranda Publik & Form Pemesanan Servis DKM (Tanpa Login)
@@ -28,7 +29,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
 // Dashboard Mobile Teknisi Lapangan
 Route::middleware(['auth', 'role:technician'])->prefix('teknisi')->name('technician.')->group(function () {
-    Route::get('/', function () {
-        return view('technician.dashboard');
-    })->name('dashboard');
+    Route::get('/', [TechnicianController::class, 'index'])->name('dashboard');
+    Route::get('/order/{id}', [TechnicianController::class, 'show'])->name('order.show');
+    Route::post('/order/{id}/mulai', [TechnicianController::class, 'startWork'])->name('order.start');
+    Route::post('/order/{id}/foto', [TechnicianController::class, 'uploadPhoto'])->name('order.photo');
+    Route::post('/order/{id}/sparepart', [TechnicianController::class, 'addSparepart'])->name('order.sparepart');
+    Route::post('/order/{id}/selesai', [TechnicianController::class, 'completeWork'])->name('order.complete');
 });
