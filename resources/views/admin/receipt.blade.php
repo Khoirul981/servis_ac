@@ -4,18 +4,32 @@
 <div class="max-w-2xl mx-auto space-y-6 py-2">
 
     <!-- Tombol Aksi Atas -->
-    <div class="flex items-center justify-between no-print">
-        <a href="{{ route('admin.dashboard', ['tab' => 'selesai']) }}" class="text-xs font-medium text-gray-600 hover:text-gray-900 inline-flex items-center gap-1">
-            &larr; Kembali ke Meja Admin
-        </a>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 no-print">
+        <div class="flex items-center gap-3">
+            @auth
+                @if(auth()->user()->role === 'admin')
+                    <a href="{{ route('admin.dashboard', ['tab' => 'selesai']) }}" class="text-xs font-medium text-gray-600 hover:text-gray-900 inline-flex items-center gap-1">
+                        &larr; Meja Admin
+                    </a>
+                    <span class="text-gray-300">|</span>
+                @endif
+            @endauth
+            <a href="{{ route('order.status', ['order_number' => $order->order_number]) }}" class="text-xs font-semibold text-[#1E3E34] hover:underline inline-flex items-center gap-1">
+                &larr; Halaman Pesanan (Status: Sudah Dibayar)
+            </a>
+        </div>
 
         <div class="flex items-center gap-2">
-            <button onclick="window.print()" class="px-4 py-2 rounded-lg bg-white hover:bg-gray-50 text-gray-800 text-xs font-medium border border-gray-300 cursor-pointer">
+            <button onclick="window.print()" class="px-4 py-2 rounded-lg bg-[#1E3E34] hover:bg-[#142B24] text-white text-xs font-semibold shadow-xs cursor-pointer">
                 Cetak Kuitansi
             </button>
-            <a href="{{ $whatsappUrl }}" target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-lg bg-[#1E3E34] hover:bg-[#142B24] text-white text-xs font-medium shadow-xs text-decoration-none cursor-pointer">
-                Kirim ke WhatsApp DKM
-            </a>
+            @auth
+                @if(auth()->user()->role === 'admin')
+                    <a href="{{ $whatsappUrl }}" target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-lg bg-white hover:bg-gray-50 text-gray-800 text-xs font-medium border border-gray-300 shadow-xs text-decoration-none cursor-pointer">
+                        Kirim ke WhatsApp DKM
+                    </a>
+                @endif
+            @endauth
         </div>
     </div>
 
@@ -34,6 +48,25 @@
             </div>
         </div>
 
+        <!-- Tautan & Status Pesanan Di Dalam Kuitansi -->
+        <div class="p-3.5 rounded-lg bg-[#EBF2EE] border border-[#1E3E34]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-[#DCFCE7] text-[#15803D] font-bold text-xs border border-[#86EFAC]">
+                    STATUS: SUDAH DIBAYAR
+                </span>
+                <span class="text-gray-700">
+                    Pembayaran servis telah diverifikasi lunas oleh admin.
+                </span>
+            </div>
+            <a href="{{ route('order.status', ['order_number' => $order->order_number]) }}" 
+               class="font-semibold text-[#1E3E34] hover:underline inline-flex items-center gap-1 no-print whitespace-nowrap">
+                Lihat Halaman Data Pesanan &rarr;
+            </a>
+            <span class="hidden print:inline text-[11px] text-gray-500 font-mono">
+                {{ route('order.status', ['order_number' => $order->order_number]) }}
+            </span>
+        </div>
+
         <!-- Identitas Masjid & Pelunasan -->
         <div class="grid grid-cols-2 gap-4 text-xs">
             <div class="space-y-1">
@@ -48,7 +81,7 @@
                 <p class="text-gray-700">Metode: <strong>{{ $metodeText }}</strong></p>
                 <p class="text-gray-700">Teknisi: <strong>{{ $order->technician->name ?? 'Tim Teknisi' }}</strong></p>
                 <span class="inline-block mt-1 px-2.5 py-1 rounded-md bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC] font-semibold text-xs">
-                    LUNAS & BERES
+                    LUNAS &amp; BERES
                 </span>
             </div>
         </div>

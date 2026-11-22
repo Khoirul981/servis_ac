@@ -61,15 +61,15 @@ class DatabaseSeeder extends Seeder
 
         AcUnit::firstOrCreate(
             ['masjid_id' => $masjid1->id, 'room_name' => 'Ruang Sholat Utama'],
-            ['ac_type' => '2 PK', 'brand' => 'Daikin']
+            ['ac_type' => '2 PK', 'brand' => 'Daikin', 'quantity' => 2]
         );
         AcUnit::firstOrCreate(
             ['masjid_id' => $masjid1->id, 'room_name' => 'Shaf Putri / Belakang'],
-            ['ac_type' => '1.5 PK', 'brand' => 'Panasonic']
+            ['ac_type' => '1.5 PK', 'brand' => 'Panasonic', 'quantity' => 1]
         );
         AcUnit::firstOrCreate(
             ['masjid_id' => $masjid1->id, 'room_name' => 'Ruang DKM'],
-            ['ac_type' => '1 PK', 'brand' => 'Sharp']
+            ['ac_type' => '1 PK', 'brand' => 'Sharp', 'quantity' => 1]
         );
 
         // 4. Data Masjid 2
@@ -85,7 +85,7 @@ class DatabaseSeeder extends Seeder
 
         AcUnit::firstOrCreate(
             ['masjid_id' => $masjid2->id, 'room_name' => 'Ruang Sholat'],
-            ['ac_type' => '1.5 PK', 'brand' => 'Gree']
+            ['ac_type' => '1.5 PK', 'brand' => 'Gree', 'quantity' => 1]
         );
 
         // 5. Contoh Order 1: Pesanan Baru (Belum dijadwalkan)

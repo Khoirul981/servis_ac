@@ -58,7 +58,7 @@
                             </td>
                             <td class="py-3.5 px-4 text-center whitespace-nowrap">
                                 <span class="inline-flex items-center justify-center px-3 py-1 rounded-md bg-[#EBF2EE] text-[#1E3E34] font-semibold border border-[#1E3E34]/20 whitespace-nowrap text-xs">
-                                    {{ $masjid->ac_units_count }} Unit
+                                    {{ $masjid->total_ac_units ?? $masjid->ac_units_count ?? 0 }} Unit
                                 </span>
                             </td>
                             <td class="py-3.5 px-4 text-center text-gray-600 whitespace-nowrap">

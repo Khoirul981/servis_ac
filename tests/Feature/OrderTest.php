@@ -58,7 +58,7 @@ class OrderTest extends TestCase
         ]);
 
         $order = Order::latest()->first();
-        $response->assertRedirect('/pesan/sukses/' . $order->order_number);
+        $response->assertRedirect('/pesan/status/' . $order->order_number);
     }
 
     /**
@@ -87,7 +87,7 @@ class OrderTest extends TestCase
         ]);
 
         $order = Order::latest()->first();
-        $response->assertRedirect('/pesan/sukses/' . $order->order_number);
+        $response->assertRedirect('/pesan/status/' . $order->order_number);
     }
 
     /**
@@ -168,5 +168,121 @@ class OrderTest extends TestCase
         $response->assertSee('SO-20261121-777');
         $response->assertSee('Masjid Raya Darussalam');
         $response->assertSee('https://wa.me/6281234567890', false);
+        $response->assertSee('BELUM DIBAYAR');
+    }
+
+    /**
+     * Test pengguna dapat melacak pesanan dengan memasukkan nomor registrasi.
+     */
+    public function test_user_can_track_order_by_registration_number(): void
+    {
+        $masjid = Masjid::factory()->create(['name' => 'Masjid Jamie Al-Kautsar']);
+        $order = Order::create([
+            'order_number' => 'SO-20261121-003',
+            'masjid_id' => $masjid->id,
+            'status' => Order::STATUS_PESANAN_BARU,
+            'ac_count' => 2,
+            'base_amount' => 150000,
+            'dkm_complaint' => 'Cuci Rutin',
+        ]);
+
+        // 1. Submit pencarian nomor registrasi
+        $response = $this->get('/pesan/lacak?order_number=SO-20261121-003');
+        $response->assertRedirect('/pesan/status/SO-20261121-003');
+
+        // 2. Akses halaman status pesanan (sebelum dibayar)
+        $statusResponse = $this->get('/pesan/status/SO-20261121-003');
+        $statusResponse->assertStatus(200);
+        $statusResponse->assertSee('SO-20261121-003');
+        $statusResponse->assertSee('Masjid Jamie Al-Kautsar');
+        $statusResponse->assertSee('BELUM DIBAYAR');
+        $statusResponse->assertSee('Menunggu Verifikasi Admin');
+    }
+
+    /**
+     * Test status pesanan berubah menjadi SUDAH DIBAYAR ketika diverifikasi oleh admin.
+     */
+    public function test_order_status_displays_sudah_dibayar_when_verified_by_admin(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $masjid = Masjid::factory()->create(['name' => 'Masjid Agung Al-Ikhlas']);
+        $order = Order::create([
+            'order_number' => 'SO-20261121-005',
+            'masjid_id' => $masjid->id,
+            'status' => Order::STATUS_MENUNGGU_BAYAR,
+            'ac_count' => 2,
+            'base_amount' => 150000,
+            'dkm_complaint' => 'Cuci Rutin',
+        ]);
+
+        // Admin verifikasi pembayaran
+        $responsePay = $this->actingAs($admin)->post('/admin/order/' . $order->id . '/pay', [
+            'payment_method' => 'transfer',
+        ]);
+        $responsePay->assertRedirect('/admin/order/' . $order->id . '/receipt');
+
+        // Refresh model dan cek status
+        $order->refresh();
+        $this->assertEquals(Order::STATUS_SELESAI, $order->status);
+        $this->assertNotNull($order->paid_at);
+        $this->assertTrue($order->isPaid());
+
+        // Buka halaman status pesanan publik
+        $statusResponse = $this->get('/pesan/status/SO-20261121-005');
+        $statusResponse->assertStatus(200);
+        $statusResponse->assertSee('SUDAH DIBAYAR');
+        $statusResponse->assertSee('Terverifikasi Admin');
+        $statusResponse->assertSee('Lihat Kuitansi Resmi');
+    }
+
+    /**
+     * Test kuitansi memiliki link menuju halaman status pesanan dan pesan WA memuat link pesanan.
+     */
+    public function test_receipt_and_whatsapp_contain_order_status_link(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $masjid = Masjid::factory()->create([
+            'name' => 'Musholla An-Nur',
+            'pic_name' => 'Pak Ahmad',
+            'pic_phone' => '081233445566',
+        ]);
+        $order = Order::create([
+            'order_number' => 'SO-20261121-009',
+            'masjid_id' => $masjid->id,
+            'status' => Order::STATUS_SELESAI,
+            'payment_method' => 'qris',
+            'paid_at' => now(),
+            'ac_count' => 1,
+            'base_amount' => 75000,
+            'dkm_complaint' => 'Cuci Rutin',
+        ]);
+
+        // Cek halaman kuitansi admin (ada tombol Cetak dan tombol Kirim ke WhatsApp DKM)
+        $receiptResponse = $this->actingAs($admin)->get('/admin/order/' . $order->id . '/receipt');
+        $receiptResponse->assertStatus(200);
+        $receiptResponse->assertSee('/pesan/status/SO-20261121-009');
+        $receiptResponse->assertSee('Cetak Kuitansi');
+        $receiptResponse->assertSee('Kirim ke WhatsApp DKM');
+
+        // Cek halaman kuitansi publik pemesan (hanya ada tombol Cetak Kuitansi, TIDAK ada tombol Kirim ke WhatsApp DKM)
+        auth()->logout();
+        $publicReceiptResponse = $this->get('/pesan/kuitansi/SO-20261121-009');
+        $publicReceiptResponse->assertStatus(200);
+        $publicReceiptResponse->assertSee('/pesan/status/SO-20261121-009');
+        $publicReceiptResponse->assertSee('Cetak Kuitansi');
+        $publicReceiptResponse->assertDontSee('Kirim ke WhatsApp DKM');
+
+        // Cek link pesanan di pesan WhatsApp kuitansi
+        $receiptResponse->assertSee(route('order.status', ['order_number' => 'SO-20261121-009']), false);
+    }
+
+    /**
+     * Test pelacakan nomor registrasi yang salah atau tidak ada mengembalikan pesan error validasi.
+     */
+    public function test_tracking_invalid_order_number_returns_validation_error(): void
+    {
+        $response = $this->get('/pesan/lacak?order_number=SO-99999999-999');
+        $response->assertRedirect('/pesan');
+        $response->assertSessionHasErrors('track_order_number');
     }
 }

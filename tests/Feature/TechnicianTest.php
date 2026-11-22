@@ -287,4 +287,73 @@ class TechnicianTest extends TestCase
             'additional_notes' => null,
         ]);
     }
+
+    /**
+     * Test teknisi dapat menambah lebih dari 1 suku cadang, mengubah, dan menghapus salah satunya.
+     */
+    public function test_technician_can_manage_multiple_spareparts(): void
+    {
+        $tech = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
+
+        $order = Order::factory()->create([
+            'technician_id' => $tech->id,
+            'status' => Order::STATUS_DIKERJAKAN,
+            'additional_amount' => 0,
+        ]);
+
+        // 1. Tambah item pertama: Kapasitor (2 unit x 75.000 = 150.000)
+        $responseItem1 = $this->actingAs($tech)->post('/teknisi/order/' . $order->id . '/sparepart', [
+            'item_name' => 'Kapasitor 35uF',
+            'quantity' => 2,
+            'price' => 75000,
+        ]);
+        $responseItem1->assertRedirect();
+        $this->assertDatabaseHas('order_spareparts', [
+            'order_id' => $order->id,
+            'item_name' => 'Kapasitor 35uF',
+            'quantity' => 2,
+            'subtotal' => 150000,
+        ]);
+        $this->assertEquals(150000, $order->fresh()->additional_amount);
+
+        // 2. Tambah item kedua: Freon R32 (1 unit x 150.000 = 150.000)
+        $responseItem2 = $this->actingAs($tech)->post('/teknisi/order/' . $order->id . '/sparepart', [
+            'item_name' => 'Isi Freon R32',
+            'quantity' => 1,
+            'price' => 150000,
+        ]);
+        $responseItem2->assertRedirect();
+        $this->assertDatabaseHas('order_spareparts', [
+            'order_id' => $order->id,
+            'item_name' => 'Isi Freon R32',
+            'quantity' => 1,
+            'subtotal' => 150000,
+        ]);
+        // Total akumulasi otomatis 150.000 + 150.000 = 300.000
+        $this->assertEquals(300000, $order->fresh()->additional_amount);
+
+        // 3. Edit item kedua menjadi 200.000
+        $freon = \App\Models\OrderSparepart::where('order_id', $order->id)->where('item_name', 'Isi Freon R32')->first();
+        $responseUpdate = $this->actingAs($tech)->put('/teknisi/order/sparepart/' . $freon->id, [
+            'item_name' => 'Isi Freon R32 (Tabung Penuh)',
+            'quantity' => 1,
+            'price' => 200000,
+        ]);
+        $responseUpdate->assertRedirect();
+        $this->assertDatabaseHas('order_spareparts', [
+            'id' => $freon->id,
+            'item_name' => 'Isi Freon R32 (Tabung Penuh)',
+            'subtotal' => 200000,
+        ]);
+        // Total baru: 150.000 + 200.000 = 350.000
+        $this->assertEquals(350000, $order->fresh()->additional_amount);
+
+        // 4. Hapus item pertama (Kapasitor)
+        $kapasitor = \App\Models\OrderSparepart::where('order_id', $order->id)->where('item_name', 'Kapasitor 35uF')->first();
+        $responseDeleteItem = $this->actingAs($tech)->delete('/teknisi/order/sparepart/' . $kapasitor->id);
+        $responseDeleteItem->assertRedirect();
+        $this->assertDatabaseMissing('order_spareparts', ['id' => $kapasitor->id]);
+        // Sisa total: 200.000
+        $this->assertEquals(200000, $order->fresh()->additional_amount);
+    }
 }

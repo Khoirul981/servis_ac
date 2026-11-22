@@ -44,7 +44,7 @@
     <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm space-y-4">
         <div class="flex items-center justify-between pb-3 border-b border-gray-100">
             <h2 class="text-base font-semibold text-gray-900">
-                Daftar Unit AC Terpasang ({{ $masjid->acUnits->count() }})
+                Daftar Unit AC Terpasang (Total: {{ $masjid->acUnits->sum('quantity') ?: $masjid->acUnits->count() }} Unit)
             </h2>
         </div>
 
@@ -58,14 +58,17 @@
                                 {{ $unit->ac_type }}
                             </span>
                         </div>
-                        <div class="text-gray-600 pt-1">
+                        <div class="text-gray-600 pt-1 flex items-center justify-between">
                             <span>Merk: <strong>{{ $unit->brand ?? '-' }}</strong></span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded bg-[#EBF2EE] text-[#1E3E34] font-semibold border border-[#1E3E34]/20 text-[11px]">
+                                {{ $unit->quantity ?? 1 }} Unit
+                            </span>
                         </div>
                     </div>
 
                     <div class="pt-2 border-t border-gray-200 flex items-center justify-end gap-1.5">
                         <button type="button" 
-                                onclick="openEditUnitModal({{ $unit->id }}, '{{ addslashes($unit->room_name) }}', '{{ addslashes($unit->ac_type) }}', '{{ addslashes($unit->brand ?? '') }}')"
+                                onclick="openEditUnitModal({{ $unit->id }}, '{{ addslashes($unit->room_name) }}', '{{ addslashes($unit->ac_type) }}', '{{ addslashes($unit->brand ?? '') }}', {{ $unit->quantity ?? 1 }})"
                                 class="px-2.5 py-1 rounded border border-gray-300 hover:bg-white text-gray-700 font-medium transition-colors cursor-pointer text-[11px]">
                             Edit
                         </button>
@@ -88,14 +91,25 @@
         <!-- Form Tambah Unit AC Baru -->
         <div class="pt-4 border-t border-gray-100">
             <h3 class="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Tambah Unit AC Baru:</h3>
-            <form method="POST" action="{{ route('admin.masjids.ac.store', $masjid->id) }}" class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+            <form method="POST" action="{{ route('admin.masjids.ac.store', $masjid->id) }}" class="grid grid-cols-1 sm:grid-cols-12 gap-2">
                 @csrf
-                <input type="text" name="room_name" required placeholder="Nama Ruang (mis: Shaf Depan)" class="px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
-                <input type="text" name="ac_type" required placeholder="Tipe / PK (mis: 1.5 PK / Split)" class="px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
-                <input type="text" name="brand" placeholder="Merk (mis: Daikin, Panasonic)" class="px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
-                <button type="submit" class="min-h-[44px] px-4 py-2.5 bg-[#1E3E34] hover:bg-[#142B24] text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors">
-                    + Simpan Unit AC
-                </button>
+                <div class="sm:col-span-4">
+                    <input type="text" name="room_name" required placeholder="Nama Ruang (mis: Shaf Depan)" class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+                </div>
+                <div class="sm:col-span-3">
+                    <input type="text" name="ac_type" required placeholder="Tipe / PK (mis: 1.5 PK)" class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+                </div>
+                <div class="sm:col-span-3">
+                    <input type="text" name="brand" placeholder="Merk (mis: Daikin, Sharp)" class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+                </div>
+                <div class="sm:col-span-2">
+                    <input type="number" name="quantity" min="1" max="999" value="1" required placeholder="Jumlah" class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white" title="Jumlah Unit AC">
+                </div>
+                <div class="sm:col-span-12">
+                    <button type="submit" class="min-h-[44px] px-5 py-2.5 bg-[#1E3E34] hover:bg-[#142B24] text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors w-full sm:w-auto">
+                        + Simpan Unit AC
+                    </button>
+                </div>
             </form>
         </div>
     </div>
@@ -196,9 +210,16 @@
                 <input type="text" id="edit-unit-type" name="ac_type" required placeholder="Contoh: 1.5 PK, 2 PK" class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
             </div>
 
-            <div class="space-y-1">
-                <label class="block text-xs font-semibold text-gray-800">Merk AC</label>
-                <input type="text" id="edit-unit-brand" name="brand" placeholder="Contoh: Daikin, Panasonic, Sharp" class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-gray-800">Merk AC</label>
+                    <input type="text" id="edit-unit-brand" name="brand" placeholder="Contoh: Daikin, Panasonic, Sharp" class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-gray-800">Jumlah Unit <span class="text-red-500">*</span></label>
+                    <input type="number" id="edit-unit-quantity" name="quantity" min="1" max="999" required class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+                </div>
             </div>
 
             <div class="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
@@ -227,11 +248,12 @@
         document.getElementById('modal-edit-masjid').classList.add('hidden');
     }
 
-    function openEditUnitModal(id, roomName, acType, brand) {
+    function openEditUnitModal(id, roomName, acType, brand, quantity) {
         document.getElementById('form-edit-unit').action = '/admin/ac/' + id;
         document.getElementById('edit-unit-room').value = roomName;
         document.getElementById('edit-unit-type').value = acType;
         document.getElementById('edit-unit-brand').value = brand;
+        document.getElementById('edit-unit-quantity').value = quantity || 1;
         document.getElementById('modal-edit-unit').classList.remove('hidden');
     }
 

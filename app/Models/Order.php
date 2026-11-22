@@ -65,6 +65,50 @@ class Order extends Model
     }
 
     /**
+     * Get the spare parts / additional items attached to this order.
+     *
+     * @return HasMany<OrderSparepart, $this>
+     */
+    public function spareparts(): HasMany
+    {
+        return $this->hasMany(OrderSparepart::class);
+    }
+
+    /**
+     * Hitung ulang total biaya tambahan dan ringkasan catatan dari seluruh suku cadang.
+     */
+    public function recalculateSpareparts(): void
+    {
+        $this->load('spareparts');
+        $total = (float) $this->spareparts->sum('subtotal');
+        $notes = $this->spareparts->map(function ($item) {
+            $qtyText = $item->quantity > 1 ? "{$item->quantity}x " : '';
+            return "{$item->item_name} ({$qtyText}Rp " . number_format($item->price, 0, ',', '.') . ")";
+        })->implode(', ');
+
+        $this->update([
+            'additional_amount' => $total,
+            'additional_notes' => $notes ?: null,
+        ]);
+    }
+
+    /**
+     * Cek apakah pesanan telah lunas / diverifikasi dibayar oleh admin.
+     */
+    public function isPaid(): bool
+    {
+        return ! is_null($this->paid_at) || $this->status === self::STATUS_SELESAI;
+    }
+
+    /**
+     * Label status pembayaran (Belum Dibayar vs Sudah Dibayar).
+     */
+    public function paymentStatusLabel(): string
+    {
+        return $this->isPaid() ? 'Sudah Dibayar' : 'Belum Dibayar';
+    }
+
+    /**
      * Calculate grand total (base + additional).
      */
     public function grandTotal(): float

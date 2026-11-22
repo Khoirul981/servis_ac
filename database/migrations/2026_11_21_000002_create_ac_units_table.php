@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('room_name');
             $table->string('ac_type')->default('1 PK');
             $table->string('brand')->nullable();
+            $table->unsignedInteger('quantity')->default(1);
             $table->timestamps();
         });
     }

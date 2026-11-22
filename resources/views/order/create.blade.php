@@ -71,6 +71,47 @@
         </p>
     </div>
 
+    <!-- Box Lacak Pesanan / Cek Status dengan Nomor Registrasi -->
+    <div class="mb-5 bg-white rounded-xl border border-gray-200 p-4 shadow-sm" 
+         x-data="{ openTrack: {{ $errors->has('track_order_number') || request('order_number') ? 'true' : 'false' }} }">
+        <div class="flex items-center justify-between cursor-pointer" @click="openTrack = !openTrack">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-[#EBF2EE] text-[#1E3E34] flex items-center justify-center border border-[#1E3E34]/20 shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-sm font-bold text-gray-900">Sudah Pernah Memesan?</h2>
+                    <p class="text-xs text-gray-500">Cek status pengerjaan & bukti pembayaran pesanan</p>
+                </div>
+            </div>
+            <button type="button" class="text-xs font-semibold text-[#1E3E34] hover:underline cursor-pointer">
+                <span x-text="openTrack ? 'Tutup' : 'Cek Status &rarr;'"></span>
+            </button>
+        </div>
+
+        <div x-show="openTrack" x-cloak class="mt-3 pt-3 border-t border-gray-100 space-y-2">
+            <form method="GET" action="{{ route('order.track') }}" class="flex flex-col sm:flex-row gap-2">
+                <div class="flex-1">
+                    <input type="text" 
+                           name="order_number" 
+                           value="{{ old('track_order_number', request('order_number')) }}" 
+                           required 
+                           placeholder="Masukkan Nomor Registrasi (contoh: SO-{{ now()->format('Ymd') }}-001)" 
+                           class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border {{ $errors->has('track_order_number') ? 'border-red-400 bg-red-50/30' : 'border-gray-300 bg-white' }} text-xs text-gray-900 font-mono outline-none focus:border-[#1E3E34]">
+                </div>
+                <button type="submit" 
+                        class="min-h-[44px] px-5 py-2.5 bg-[#1E3E34] hover:bg-[#142B24] text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap">
+                    Lihat Pesanan
+                </button>
+            </form>
+            @error('track_order_number')
+                <p class="text-xs text-red-600 font-medium">{{ $message }}</p>
+            @enderror
+        </div>
+    </div>
+
     <!-- Pilihan Mode: Masjid Terdaftar / Masjid Baru (Di Atas Card) -->
     <div class="grid grid-cols-2 p-1 bg-gray-200/80 rounded-xl mb-4 text-xs sm:text-sm font-medium">
         <button type="button" 

@@ -18,6 +18,7 @@ class MasterMasjidController extends Controller
         $search = trim($request->query('search', ''));
 
         $masjids = Masjid::withCount('acUnits')
+            ->withSum('acUnits as total_ac_units', 'quantity')
             ->when($search, function ($query, $search) {
                 $query->where('name', 'like', "%{$search}%")
                     ->orWhere('address', 'like', "%{$search}%")
@@ -131,9 +132,11 @@ class MasterMasjidController extends Controller
             'room_name' => ['required', 'string', 'max:100'],
             'ac_type' => ['required', 'string', 'max:50'],
             'brand' => ['nullable', 'string', 'max:50'],
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:999'],
         ], [
             'room_name.required' => 'Nama ruangan / lokasi penempatan AC wajib diisi.',
             'ac_type.required' => 'Tipe / PK AC wajib diisi.',
+            'quantity.min' => 'Jumlah unit minimal 1.',
         ]);
 
         AcUnit::create([
@@ -141,6 +144,7 @@ class MasterMasjidController extends Controller
             'room_name' => trim($validated['room_name']),
             'ac_type' => trim($validated['ac_type']),
             'brand' => ! empty($validated['brand']) ? trim($validated['brand']) : null,
+            'quantity' => (int) ($validated['quantity'] ?? 1),
         ]);
 
         return back()->with('success', 'Unit AC baru berhasil ditambahkan.');
@@ -157,15 +161,18 @@ class MasterMasjidController extends Controller
             'room_name' => ['required', 'string', 'max:100'],
             'ac_type' => ['required', 'string', 'max:50'],
             'brand' => ['nullable', 'string', 'max:50'],
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:999'],
         ], [
             'room_name.required' => 'Nama ruangan / lokasi penempatan AC wajib diisi.',
             'ac_type.required' => 'Tipe / PK AC wajib diisi.',
+            'quantity.min' => 'Jumlah unit minimal 1.',
         ]);
 
         $unit->update([
             'room_name' => trim($validated['room_name']),
             'ac_type' => trim($validated['ac_type']),
             'brand' => ! empty($validated['brand']) ? trim($validated['brand']) : null,
+            'quantity' => (int) ($validated['quantity'] ?? $unit->quantity ?? 1),
         ]);
 
         return back()->with('success', 'Data unit AC berhasil diperbarui.');

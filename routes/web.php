@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [OrderController::class, 'create'])->name('home');
 Route::get('/pesan', [OrderController::class, 'create'])->name('order.create');
 Route::post('/pesan', [OrderController::class, 'store'])->name('order.store');
+Route::get('/pesan/lacak', [OrderController::class, 'track'])->name('order.track');
+Route::get('/pesan/status/{order_number}', [OrderController::class, 'status'])->name('order.status');
+Route::get('/pesan/kuitansi/{order_number}', [OrderController::class, 'publicReceipt'])->name('order.public_receipt');
 Route::get('/pesan/sukses/{order_number}', [OrderController::class, 'success'])->name('order.success');
 Route::get('/api/masjid-autocomplete', [OrderController::class, 'searchMasjid'])->name('api.masjid.autocomplete');
 
@@ -63,6 +66,8 @@ Route::middleware(['auth', 'role:technician'])->prefix('teknisi')->name('technic
     Route::put('/order/foto/{photo_id}', [TechnicianController::class, 'updatePhoto'])->name('order.photo.update');
     Route::delete('/order/foto/{photo_id}', [TechnicianController::class, 'destroyPhoto'])->name('order.photo.destroy');
     Route::post('/order/{id}/sparepart', [TechnicianController::class, 'addSparepart'])->name('order.sparepart');
+    Route::put('/order/sparepart/{sparepart_id}', [TechnicianController::class, 'updateSparepart'])->name('order.sparepart.update');
+    Route::delete('/order/sparepart/{sparepart_id}', [TechnicianController::class, 'destroySparepartItem'])->name('order.sparepart.item.destroy');
     Route::delete('/order/{id}/sparepart', [TechnicianController::class, 'removeSparepart'])->name('order.sparepart.destroy');
     Route::post('/order/{id}/selesai', [TechnicianController::class, 'completeWork'])->name('order.complete');
 });

@@ -144,6 +144,7 @@ class AdminTest extends TestCase
             'room_name' => 'Shaf Utama Depan',
             'ac_type' => '2 PK',
             'brand' => 'Panasonic',
+            'quantity' => 3,
         ]);
 
         $response->assertRedirect();
@@ -152,6 +153,7 @@ class AdminTest extends TestCase
             'room_name' => 'Shaf Utama Depan',
             'ac_type' => '2 PK',
             'brand' => 'Panasonic',
+            'quantity' => 3,
         ]);
     }
 
@@ -240,6 +242,7 @@ class AdminTest extends TestCase
             'room_name' => 'Ruang Imam Baru',
             'ac_type' => '2 PK Inverter',
             'brand' => 'Panasonic',
+            'quantity' => 4,
         ]);
         $responseUpdate->assertRedirect();
         $this->assertDatabaseHas('ac_units', [
@@ -247,6 +250,7 @@ class AdminTest extends TestCase
             'room_name' => 'Ruang Imam Baru',
             'ac_type' => '2 PK Inverter',
             'brand' => 'Panasonic',
+            'quantity' => 4,
         ]);
 
         // Delete AC Unit

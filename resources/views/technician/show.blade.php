@@ -232,52 +232,110 @@
     </div>
 
     <!-- ========================================================================= -->
-    <!-- LANGKAH 3: BIAYA TAMBAHAN SPAREPART (OPSIONAL) -->
+    <!-- LANGKAH 3: BIAYA TAMBAHAN SPAREPART / SUKU CADANG (LEBIH DARI 1 ITEM) -->
     <!-- ========================================================================= -->
-    <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3" 
+    <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4" 
          x-data="{ 
-             hasSparepart: {{ $order->additional_amount > 0 ? 'true' : 'false' }},
-             showForm: false 
+             showAddForm: false,
+             newItemName: '',
+             newItemQty: 1,
+             newItemPrice: 0,
+             get newSubtotal() {
+                 return (parseInt(this.newItemQty) || 0) * (parseFloat(this.newItemPrice) || 0);
+             },
+             formatRupiah(val) {
+                 return new Intl.NumberFormat('id-ID').format(val);
+             }
          }">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <span class="w-6 h-6 rounded-md bg-gray-200 text-gray-700 flex items-center justify-center font-bold text-xs">
+                <span class="w-6 h-6 rounded-md {{ $order->additional_amount > 0 ? 'bg-[#1E3E34] text-white' : 'bg-gray-200 text-gray-700' }} flex items-center justify-center font-bold text-xs">
                     3
                 </span>
                 <div>
                     <h2 class="text-base font-semibold text-gray-900">Tambahan Suku Cadang / Freon</h2>
-                    <span class="text-xs text-gray-500">Opsional jika ada biaya tak terduga</span>
+                    <span class="text-xs text-gray-500">Bisa menambahkan lebih dari satu item</span>
                 </div>
             </div>
-            @if($order->additional_amount == 0)
-                <button type="button" 
-                        @click="showForm = !showForm"
-                        class="text-xs font-semibold text-[#1E3E34] hover:underline cursor-pointer">
-                    <span x-text="showForm ? 'Tutup Form' : '+ Tambah Biaya'"></span>
-                </button>
-            @endif
+            
+            <button type="button" 
+                    @click="showAddForm = !showAddForm"
+                    class="text-xs font-semibold text-[#1E3E34] hover:underline cursor-pointer">
+                <span x-text="showAddForm ? 'Tutup Form' : '+ Tambah Suku Cadang'"></span>
+            </button>
         </div>
 
-        @if($order->additional_amount > 0)
-            <!-- Kotak Ringkasan Biaya Tambahan yang Tercatat -->
-            <div x-show="!showForm" class="p-3.5 rounded-lg bg-gray-50 border border-gray-200 text-xs space-y-2">
+        <!-- DAFTAR SUKU CADANG YANG TELAH DITAMBAHKAN -->
+        @if($order->spareparts->isNotEmpty())
+            <div class="space-y-2">
+                <span class="text-xs font-semibold text-gray-700 uppercase tracking-wider block">
+                    Daftar Suku Cadang Tercatat ({{ $order->spareparts->count() }}):
+                </span>
+
+                <div class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-gray-50 overflow-hidden text-xs">
+                    @foreach($order->spareparts as $item)
+                        <div class="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-gray-100/70 transition-colors">
+                            <div class="space-y-0.5">
+                                <strong class="text-sm font-semibold text-gray-900 block">{{ $item->item_name }}</strong>
+                                <span class="text-gray-500 text-xs">
+                                    {{ $item->quantity }} unit &times; Rp {{ number_format($item->price, 0, ',', '.') }} = 
+                                    <span class="font-semibold text-gray-900">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</span>
+                                </span>
+                            </div>
+
+                            <div class="flex items-center gap-1.5 self-end sm:self-auto">
+                                <button type="button" 
+                                        @click="openEditSparepart({{ $item->id }}, '{{ addslashes($item->item_name) }}', {{ $item->quantity }}, {{ (int)$item->price }})"
+                                        class="px-2.5 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium text-xs transition-colors cursor-pointer">
+                                    Edit
+                                </button>
+                                <form method="POST" action="{{ route('technician.order.sparepart.item.destroy', $item->id) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus suku cadang {{ addslashes($item->item_name) }} ini?');" class="inline">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="px-2.5 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 font-medium text-xs transition-colors cursor-pointer">
+                                        Hapus
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    @endforeach
+
+                    <!-- Baris Total Biaya Tambahan -->
+                    <div class="p-3.5 bg-white flex items-center justify-between font-bold text-xs border-t border-gray-200">
+                        <span class="text-gray-700">Total Biaya Tambahan:</span>
+                        <span class="text-sm text-[#1E3E34]">Rp {{ number_format($order->additional_amount, 0, ',', '.') }}</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-1 text-xs">
+                    <button type="button" 
+                            @click="showAddForm = true"
+                            class="text-xs font-semibold text-[#1E3E34] hover:underline cursor-pointer">
+                        + Tambah Suku Cadang Lainnya
+                    </button>
+                    <form method="POST" action="{{ route('technician.order.sparepart.destroy', $order->id) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus seluruh catatan suku cadang tambahan ini?');" class="inline">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="text-xs text-red-600 hover:underline cursor-pointer">
+                            Hapus Semua Suku Cadang
+                        </button>
+                    </form>
+                </div>
+            </div>
+        @elseif($order->additional_amount > 0)
+            <!-- Tampilan Cadangan untuk Data Warisan / Legacy -->
+            <div class="p-3.5 rounded-lg bg-gray-50 border border-gray-200 text-xs space-y-2">
                 <div class="flex justify-between font-semibold text-gray-900">
                     <span>Biaya Tambahan Tercatat:</span>
                     <span class="text-[#1E3E34] text-sm">Rp {{ number_format($order->additional_amount, 0, ',', '.') }}</span>
                 </div>
                 <p class="text-gray-600 leading-relaxed">{{ $order->additional_notes }}</p>
 
-                <!-- Tombol Edit & Hapus Biaya Tambahan -->
                 <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
-                    <button type="button" 
-                            @click="showForm = true"
-                            class="px-3 py-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-100 text-gray-800 font-semibold text-xs transition-colors cursor-pointer">
-                        Edit Biaya
-                    </button>
                     <form method="POST" action="{{ route('technician.order.sparepart.destroy', $order->id) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus catatan biaya tambahan ini?');" class="inline">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="px-3 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 font-semibold text-xs transition-colors cursor-pointer">
+                        <button type="submit" class="px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 font-semibold text-xs transition-colors cursor-pointer">
                             Hapus Biaya
                         </button>
                     </form>
@@ -285,46 +343,70 @@
             </div>
         @endif
 
-        <!-- Formulir Input / Edit Biaya Tambahan -->
-        <div x-show="showForm" class="pt-2 border-t border-gray-100">
+        <!-- FORM INPUT TAMBAH SUKU CADANG BARU -->
+        <div x-show="showAddForm || {{ $order->spareparts->isEmpty() && $order->additional_amount == 0 ? 'true' : 'false' }}" class="pt-3 border-t border-gray-100">
+            <h3 class="text-xs font-semibold text-gray-800 uppercase tracking-wider mb-2.5">
+                {{ $order->spareparts->isNotEmpty() ? '+ Tambah Suku Cadang Berikutnya:' : 'Catat Suku Cadang / Tindakan Tambahan:' }}
+            </h3>
+
             <form method="POST" action="{{ route('technician.order.sparepart', $order->id) }}" class="space-y-3">
                 @csrf
                 <div>
-                    <label for="additional_amount" class="block text-xs font-semibold text-gray-800 mb-1">
-                        Nominal Biaya Tambahan (Rp):
+                    <label class="block text-xs font-semibold text-gray-800 mb-1">
+                        Nama Suku Cadang / Tindakan: <span class="text-red-500">*</span>
                     </label>
-                    <input type="number" 
-                           name="additional_amount" 
-                           id="additional_amount" 
-                           value="{{ old('additional_amount', (int)$order->additional_amount) }}"
-                           step="1000"
-                           min="0"
+                    <input type="text" 
+                           name="item_name" 
+                           x-model="newItemName"
                            required
-                           placeholder="Contoh: 150000" 
-                           class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm font-semibold text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+                           placeholder="Contoh: Kapasitor 35uF, Tambah Freon R32 1kg, Pipa AC" 
+                           class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
                 </div>
 
-                <div>
-                    <label for="additional_notes" class="block text-xs font-semibold text-gray-800 mb-1">
-                        Rincian Suku Cadang:
-                    </label>
-                    <textarea name="additional_notes" 
-                              id="additional_notes" 
-                              rows="2" 
-                              required
-                              placeholder="Contoh: Tambah Freon R32 1 kg & Ganti Kapasitor Outdoor"
-                              class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">{{ old('additional_notes', $order->additional_notes) }}</textarea>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-800 mb-1">
+                            Jumlah (Qty): <span class="text-red-500">*</span>
+                        </label>
+                        <input type="number" 
+                               name="quantity" 
+                               x-model="newItemQty"
+                               min="1" 
+                               max="999" 
+                               required
+                               class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white font-mono">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-800 mb-1">
+                            Harga Satuan (Rp): <span class="text-red-500">*</span>
+                        </label>
+                        <input type="number" 
+                               name="price" 
+                               x-model="newItemPrice"
+                               step="1000" 
+                               min="0" 
+                               required
+                               placeholder="Contoh: 75000" 
+                               class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white font-mono">
+                    </div>
+                </div>
+
+                <!-- Preview Subtotal Otomatis -->
+                <div class="p-2.5 bg-[#EBF2EE] rounded-lg border border-[#1E3E34]/20 text-xs flex justify-between items-center text-[#1E3E34]">
+                    <span class="font-medium">Subtotal Item Ini:</span>
+                    <span class="font-bold text-sm" x-text="'Rp ' + formatRupiah(newSubtotal)"></span>
                 </div>
 
                 <div class="flex items-center justify-end gap-2 pt-1">
-                    @if($order->additional_amount > 0)
-                        <button type="button" @click="showForm = false" class="px-3.5 py-2 rounded-lg border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 cursor-pointer">
+                    @if($order->spareparts->isNotEmpty() || $order->additional_amount > 0)
+                        <button type="button" @click="showAddForm = false" class="px-3.5 py-2 rounded-lg border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 cursor-pointer">
                             Batal
                         </button>
                     @endif
                     <button type="submit" 
                             class="px-4 py-2 bg-[#1E3E34] hover:bg-[#142B24] text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer">
-                        Simpan Rincian Tambahan
+                        + Simpan Suku Cadang ke Daftar
                     </button>
                 </div>
             </form>
@@ -440,6 +522,53 @@
         </div>
     </div>
 
+    <!-- ========================================================================= -->
+    <!-- MODAL EDIT SUKU CADANG / SPAREPART -->
+    <!-- ========================================================================= -->
+    <div x-show="showEditSparepartModal" x-cloak class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div @click.away="showEditSparepartModal = false" class="bg-white rounded-xl border border-gray-200 max-w-md w-full p-6 space-y-4 shadow-xl">
+            <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                <h3 class="text-base font-bold text-gray-900">Perbarui Suku Cadang</h3>
+                <button type="button" @click="showEditSparepartModal = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer">&times;</button>
+            </div>
+
+            <form :action="'/teknisi/order/sparepart/' + editSparepartId" method="POST" class="space-y-3.5">
+                @csrf
+                @method('PUT')
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-gray-800">Nama Suku Cadang / Tindakan: <span class="text-red-500">*</span></label>
+                    <input type="text" name="item_name" x-model="editSparepartName" required class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-semibold text-gray-800">Jumlah (Qty): <span class="text-red-500">*</span></label>
+                        <input type="number" name="quantity" x-model="editSparepartQty" min="1" max="999" required class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white font-mono">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-semibold text-gray-800">Harga Satuan (Rp): <span class="text-red-500">*</span></label>
+                        <input type="number" name="price" x-model="editSparepartPrice" step="1000" min="0" required class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white font-mono">
+                    </div>
+                </div>
+
+                <div class="p-2.5 bg-[#EBF2EE] rounded-lg border border-[#1E3E34]/20 text-xs flex justify-between items-center text-[#1E3E34]">
+                    <span class="font-medium">Subtotal Item:</span>
+                    <span class="font-bold text-sm" x-text="'Rp ' + new Intl.NumberFormat('id-ID').format((parseInt(editSparepartQty) || 0) * (parseFloat(editSparepartPrice) || 0))"></span>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                    <button type="button" @click="showEditSparepartModal = false" class="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 cursor-pointer">
+                        Batal
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-lg bg-[#1E3E34] hover:bg-[#142B24] text-white text-xs font-semibold cursor-pointer transition-colors">
+                        Simpan Perubahan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </div>
 
 <!-- Script Kompresi & Pratinjau Foto di Browser (Client-side HTML5 Canvas) -->
@@ -458,6 +587,19 @@ function technicianWork() {
         editPhotoId: null,
         editPhotoType: 'sebelum',
         editPhotoCaption: '',
+        showEditSparepartModal: false,
+        editSparepartId: null,
+        editSparepartName: '',
+        editSparepartQty: 1,
+        editSparepartPrice: 0,
+
+        openEditSparepart(id, name, qty, price) {
+            this.editSparepartId = id;
+            this.editSparepartName = name;
+            this.editSparepartQty = qty;
+            this.editSparepartPrice = price;
+            this.showEditSparepartModal = true;
+        },
 
         handleFileSelect(event) {
             const file = event.target.files[0];

@@ -136,6 +136,7 @@ class AdminController extends Controller
         };
 
         $tglBayar = $order->paid_at ? $order->paid_at->translatedFormat('d F Y, H:i') . ' WIB' : now()->translatedFormat('d F Y');
+        $orderUrl = route('order.status', ['order_number' => $order->order_number]);
 
         $waText = "Assalamualaikum Wr. Wb. Pak {$order->masjid->pic_name},%0A%0A" .
             "Terima kasih atas kepercayaannya merawat AC di *{$order->masjid->name}*. Berikut bukti pelunasan resmi servis AC:%0A%0A" .
@@ -154,13 +155,15 @@ class AdminController extends Controller
         $waText .= "💰 *TOTAL DIBAYAR*: Rp " . number_format($order->grandTotal(), 0, ',', '.') . "%0A" .
             "💳 *Metode*: {$metodeText}%0A" .
             "📅 *Waktu Pelunasan*: {$tglBayar}%0A" .
-            "✅ *Status*: LUNAS & BERES%0A" .
+            "✅ *Status*: LUNAS & SUDAH DIBAYAR%0A" .
             "-------------------------------------%0A%0A" .
+            "🔗 *Lihat Data Pesanan Anda Berhasil Dikirim*:%0A" .
+            "{$orderUrl}%0A%0A" .
             "Jazakumullahu khairan katsiran. Semoga AC masjid senantiasa sejuk dan membawa kenyamanan bagi para jamaah ibadah. Aamiin ya Rabbal 'Alamin.";
 
         $whatsappUrl = "https://wa.me/{$cleanPhone}?text={$waText}";
 
-        return view('admin.receipt', compact('order', 'whatsappUrl', 'metodeText'));
+        return view('admin.receipt', compact('order', 'whatsappUrl', 'metodeText', 'orderUrl'));
     }
 
     /**

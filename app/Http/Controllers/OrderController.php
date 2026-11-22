@@ -145,40 +145,119 @@ class OrderController extends Controller
         // Catat hit rate limiter (berlaku 1 jam = 3600 detik)
         RateLimiter::hit($rateLimitKey, 3600);
 
-        return redirect()->route('order.success', ['order_number' => $order->order_number]);
+        return redirect()->route('order.status', ['order_number' => $order->order_number]);
     }
 
     /**
-     * Tampilkan halaman sukses & tombol konfirmasi WhatsApp ke Admin.
+     * Tampilkan halaman sukses & tombol konfirmasi WhatsApp ke Admin (Menggunakan tampilan terpadu status pesanan).
      */
     public function success(string $order_number): View
     {
-        $order = Order::with('masjid')->where('order_number', $order_number)->firstOrFail();
+        return $this->status($order_number);
+    }
+
+    /**
+     * Pencarian / Lacak Status Pesanan berdasarkan Nomor Registrasi (contoh: SO-20261121-003).
+     */
+    public function track(Request $request): RedirectResponse
+    {
+        $orderNumber = strtoupper(trim((string) $request->input('order_number', $request->query('order_number', ''))));
+
+        if (empty($orderNumber)) {
+            return redirect()->route('order.create')
+                ->withErrors(['track_order_number' => 'Silakan masukkan nomor registrasi pesanan Anda.']);
+        }
+
+        $order = Order::where('order_number', $orderNumber)->first();
+
+        if (! $order) {
+            return redirect()->route('order.create')
+                ->withInput(['track_order_number' => $orderNumber])
+                ->withErrors([
+                    'track_order_number' => "Pesanan dengan nomor '{$orderNumber}' tidak ditemukan. Mohon pastikan format nomor benar (contoh: SO-" . now()->format('Ymd') . "-001).",
+                ]);
+        }
+
+        return redirect()->route('order.status', ['order_number' => $order->order_number]);
+    }
+
+    /**
+     * Halaman Rincian & Status Pesanan Lengkap Publik (dengan Status Pembayaran: Belum / Sudah Dibayar).
+     */
+    public function status(string $order_number): View
+    {
+        $order = Order::with(['masjid', 'technician', 'photos', 'spareparts'])
+            ->where('order_number', $order_number)
+            ->firstOrFail();
 
         // Cari nomor WhatsApp Admin pengelola
         $admin = User::where('role', User::ROLE_ADMIN)->first();
         $adminPhone = $admin?->phone ?? '081234567890';
-
-        // Konversi ke format internasional 628... untuk wa.me
         $cleanAdminPhone = preg_replace('/[^0-9]/', '', $adminPhone);
         if (str_starts_with($cleanAdminPhone, '08')) {
             $cleanAdminPhone = '628' . substr($cleanAdminPhone, 2);
         }
 
-        // Susun template pesan WhatsApp otomatis yang ramah & santun
+        $orderUrl = route('order.status', ['order_number' => $order->order_number]);
+
+        // Susun teks konfirmasi WhatsApp
         $waMessage = "Assalamualaikum Admin Servis AC Masjid,%0A%0A" .
-            "Saya telah memesan servis AC melalui website dengan rincian berikut:%0A" .
+            "Saya telah memesan servis AC melalui website (Pesanan Berhasil Dikirim):%0A" .
             "📌 *No. Pesanan*: {$order->order_number}%0A" .
             "🕌 *Masjid*: {$order->masjid->name}%0A" .
             "📍 *Alamat*: {$order->masjid->address}%0A" .
             "👤 *Pengurus/PIC*: {$order->masjid->pic_name} ({$order->masjid->pic_phone})%0A" .
             "❄️ *Jumlah AC*: {$order->ac_count} Unit%0A" .
             "🔧 *Keluhan*: {$order->dkm_complaint}%0A" .
-            "💰 *Estimasi Biaya*: Rp " . number_format($order->base_amount, 0, ',', '.') . "%0A%0A" .
+            "💰 *Biaya Awal*: Rp " . number_format($order->base_amount, 0, ',', '.') . "%0A" .
+            "💳 *Status Pembayaran*: " . ($order->isPaid() ? 'SUDAH DIBAYAR' : 'BELUM DIBAYAR') . "%0A%0A" .
+            "🔗 *Lihat Data Pesanan Anda Berhasil Dikirim*:%0A" .
+            "{$orderUrl}%0A%0A" .
             "Mohon info jadwal kedatangan teknisinya ya. Terima kasih!";
 
         $whatsappUrl = "https://wa.me/{$cleanAdminPhone}?text={$waMessage}";
 
-        return view('order.success', compact('order', 'whatsappUrl', 'adminPhone'));
+        return view('order.status', compact('order', 'whatsappUrl', 'adminPhone', 'orderUrl'));
+    }
+
+    /**
+     * Kuitansi Resmi Terbuka untuk DKM (setelah status diverifikasi Lunas / Sudah Dibayar).
+     */
+    public function publicReceipt(string $order_number): View
+    {
+        $order = Order::with(['masjid', 'technician', 'photos', 'spareparts'])
+            ->where('order_number', $order_number)
+            ->firstOrFail();
+
+        $metodeText = match ($order->payment_method) {
+            'transfer' => 'Transfer Bank',
+            'qris' => 'QRIS',
+            'cash' => 'Tunai (Dititipkan via Teknisi)',
+            default => 'Lunas',
+        };
+
+        $orderUrl = route('order.status', ['order_number' => $order->order_number]);
+
+        // Cari nomor WhatsApp DKM
+        $cleanPhone = preg_replace('/[^0-9]/', '', $order->masjid->pic_phone);
+        if (str_starts_with($cleanPhone, '08')) {
+            $cleanPhone = '628' . substr($cleanPhone, 2);
+        }
+
+        $tglBayar = $order->paid_at ? $order->paid_at->translatedFormat('d F Y, H:i') . ' WIB' : now()->translatedFormat('d F Y');
+
+        $waText = "Assalamualaikum Wr. Wb. Pak {$order->masjid->pic_name},%0A%0A" .
+            "Bukti pelunasan resmi servis AC di *{$order->masjid->name}*:%0A" .
+            "📌 *No. Kuitansi*: {$order->order_number}%0A" .
+            "💰 *TOTAL DIBAYAR*: Rp " . number_format($order->grandTotal(), 0, ',', '.') . "%0A" .
+            "💳 *Metode*: {$metodeText}%0A" .
+            "📅 *Waktu*: {$tglBayar}%0A" .
+            "✅ *Status*: SUDAH DIBAYAR%0A%0A" .
+            "🔗 *Lihat Data Pesanan Anda Berhasil Dikirim*:%0A" .
+            "{$orderUrl}";
+
+        $whatsappUrl = "https://wa.me/{$cleanPhone}?text={$waText}";
+
+        return view('admin.receipt', compact('order', 'whatsappUrl', 'metodeText', 'orderUrl'));
     }
 }

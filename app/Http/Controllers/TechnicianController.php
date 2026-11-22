@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\OrderPhoto;
+use App\Models\OrderSparepart;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -43,7 +44,7 @@ class TechnicianController extends Controller
      */
     public function show(int $id): View
     {
-        $order = Order::with(['masjid', 'photos'])->findOrFail($id);
+        $order = Order::with(['masjid', 'photos', 'spareparts'])->findOrFail($id);
 
         // Pastikan teknisi hanya bisa mengakses order miliknya
         if ($order->technician_id !== Auth::id()) {
@@ -197,7 +198,7 @@ class TechnicianController extends Controller
     }
 
     /**
-     * Tombol 3: Tambah Biaya Sparepart / Tindakan Tambahan.
+     * Tombol 3: Tambah Suku Cadang / Freon / Tindakan Tambahan.
      */
     public function addSparepart(Request $request, int $id): RedirectResponse
     {
@@ -207,12 +208,47 @@ class TechnicianController extends Controller
             abort(403);
         }
 
+        if ($request->has('item_name')) {
+            $validated = $request->validate([
+                'item_name' => ['required', 'string', 'max:255'],
+                'quantity' => ['required', 'integer', 'min:1', 'max:999'],
+                'price' => ['required', 'numeric', 'min:0'],
+            ], [
+                'item_name.required' => 'Nama suku cadang / tindakan wajib diisi.',
+                'quantity.min' => 'Jumlah minimal 1 unit.',
+                'price.required' => 'Harga satuan wajib diisi.',
+            ]);
+
+            $subtotal = (float) $validated['price'] * (int) $validated['quantity'];
+
+            OrderSparepart::create([
+                'order_id' => $order->id,
+                'item_name' => trim($validated['item_name']),
+                'quantity' => (int) $validated['quantity'],
+                'price' => (float) $validated['price'],
+                'subtotal' => $subtotal,
+            ]);
+
+            $order->recalculateSpareparts();
+
+            return back()->with('success', "Suku cadang '{$validated['item_name']}' berhasil ditambahkan.");
+        }
+
         $request->validate([
             'additional_amount' => ['required', 'numeric', 'min:0'],
             'additional_notes' => ['required', 'string', 'max:1000'],
         ], [
             'additional_amount.required' => 'Nominal biaya tambahan wajib diisi.',
             'additional_notes.required' => 'Rincian suku cadang / tindakan tambahan wajib diisi.',
+        ]);
+
+        $order->spareparts()->delete();
+        OrderSparepart::create([
+            'order_id' => $order->id,
+            'item_name' => trim((string) $request->input('additional_notes')),
+            'quantity' => 1,
+            'price' => (float) $request->input('additional_amount'),
+            'subtotal' => (float) $request->input('additional_amount'),
         ]);
 
         $order->update([
@@ -224,7 +260,60 @@ class TechnicianController extends Controller
     }
 
     /**
-     * Hapus Biaya Tambahan Sparepart / Freon.
+     * Perbarui Rincian Suku Cadang Tertentu.
+     */
+    public function updateSparepart(Request $request, int $sparepart_id): RedirectResponse
+    {
+        $sparepart = OrderSparepart::with('order')->findOrFail($sparepart_id);
+
+        if ($sparepart->order->technician_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'item_name' => ['required', 'string', 'max:255'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:999'],
+            'price' => ['required', 'numeric', 'min:0'],
+        ], [
+            'item_name.required' => 'Nama suku cadang / tindakan wajib diisi.',
+            'quantity.min' => 'Jumlah minimal 1 unit.',
+            'price.required' => 'Harga satuan wajib diisi.',
+        ]);
+
+        $subtotal = (float) $validated['price'] * (int) $validated['quantity'];
+
+        $sparepart->update([
+            'item_name' => trim($validated['item_name']),
+            'quantity' => (int) $validated['quantity'],
+            'price' => (float) $validated['price'],
+            'subtotal' => $subtotal,
+        ]);
+
+        $sparepart->order->recalculateSpareparts();
+
+        return back()->with('success', 'Data suku cadang berhasil diperbarui.');
+    }
+
+    /**
+     * Hapus Satu Item Suku Cadang.
+     */
+    public function destroySparepartItem(int $sparepart_id): RedirectResponse
+    {
+        $sparepart = OrderSparepart::with('order')->findOrFail($sparepart_id);
+
+        if ($sparepart->order->technician_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $order = $sparepart->order;
+        $sparepart->delete();
+        $order->recalculateSpareparts();
+
+        return back()->with('success', 'Item suku cadang berhasil dihapus.');
+    }
+
+    /**
+     * Hapus Seluruh Biaya Tambahan Sparepart / Freon.
      */
     public function removeSparepart(int $id): RedirectResponse
     {
@@ -234,6 +323,7 @@ class TechnicianController extends Controller
             abort(403);
         }
 
+        $order->spareparts()->delete();
         $order->update([
             'additional_amount' => 0,
             'additional_notes' => null,

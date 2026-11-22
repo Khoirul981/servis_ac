@@ -61,7 +61,7 @@ class EndToEndWorkflowTest extends TestCase
         $this->assertEquals(225000, $order->base_amount); // 75.000 x 3
         $this->assertNull($order->technician_id);
 
-        $responsePesan->assertRedirect('/pesan/sukses/' . $order->order_number);
+        $responsePesan->assertRedirect('/pesan/status/' . $order->order_number);
 
         // =========================================================================
         // TAHAP 2: Admin melihat pesanan baru & menugaskan Teknisi Budi
