@@ -33,6 +33,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/order/{id}/pay', [AdminController::class, 'confirmPayment'])->name('order.pay');
     Route::post('/order/{id}/cancel', [AdminController::class, 'cancelOrder'])->name('order.cancel');
     Route::get('/order/{id}/receipt', [AdminController::class, 'receipt'])->name('order.receipt');
+    Route::get('/api/technician-schedule', [AdminController::class, 'technicianSchedule'])->name('api.technician_schedule');
 
     // Master Masjid & Unit AC
     Route::get('/masjids', [MasterMasjidController::class, 'index'])->name('masjids.index');
@@ -69,5 +70,12 @@ Route::middleware(['auth', 'role:technician'])->prefix('teknisi')->name('technic
     Route::put('/order/sparepart/{sparepart_id}', [TechnicianController::class, 'updateSparepart'])->name('order.sparepart.update');
     Route::delete('/order/sparepart/{sparepart_id}', [TechnicianController::class, 'destroySparepartItem'])->name('order.sparepart.item.destroy');
     Route::delete('/order/{id}/sparepart', [TechnicianController::class, 'removeSparepart'])->name('order.sparepart.destroy');
+    // Kelola Unit AC Masjid yang Ditugaskan ke Teknisi
+    Route::post('/order/{id}/ac', [TechnicianController::class, 'storeAcUnit'])->name('order.ac.store');
+    Route::put('/order/{id}/ac/{unit_id}', [TechnicianController::class, 'updateAcUnit'])->name('order.ac.update');
+    Route::delete('/order/{id}/ac/{unit_id}', [TechnicianController::class, 'destroyAcUnit'])->name('order.ac.destroy');
+
     Route::post('/order/{id}/selesai', [TechnicianController::class, 'completeWork'])->name('order.complete');
+    Route::get('/order/{id}/pembayaran', [TechnicianController::class, 'paymentView'])->name('order.payment');
+    Route::post('/order/{id}/lapor-bayar', [TechnicianController::class, 'uploadPaymentProof'])->name('order.payment_proof');
 });

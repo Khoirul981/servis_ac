@@ -164,6 +164,7 @@ class TechnicianTest extends TestCase
 
     /**
      * Test tombol 4: teknisi berhasil menyelesaikan pekerjaan jika foto bukti sudah ada.
+     * Status berubah menjadi pekerjaan_selesai dan dialihkan ke halaman pelaporan pembayaran terpisah.
      */
     public function test_technician_can_complete_work_when_photo_is_present(): void
     {
@@ -185,17 +186,123 @@ class TechnicianTest extends TestCase
 
         $response = $this->actingAs($tech)->post('/teknisi/order/' . $order->id . '/selesai');
 
-        $response->assertRedirect('/teknisi');
+        $response->assertRedirect('/teknisi/order/' . $order->id . '/pembayaran');
         $response->assertSessionHas('success');
 
-        // Status berubah menjadi menunggu_bayar
+        // Status berubah menjadi pekerjaan_selesai
         $this->assertDatabaseHas('orders', [
             'id' => $order->id,
-            'status' => Order::STATUS_MENUNGGU_BAYAR,
+            'status' => Order::STATUS_PEKERJAAN_SELESAI,
         ]);
 
         // Tanggal servis terakhir masjid terupdate
         $this->assertEquals(now()->toDateString(), $masjid->fresh()->last_service_date->toDateString());
+    }
+
+    /**
+     * Test teknisi dapat mengakses halaman pelaporan pembayaran terpisah dan mengunggah bukti foto.
+     */
+    public function test_technician_can_access_payment_page_and_upload_payment_proof(): void
+    {
+        Storage::fake('public');
+
+        $tech = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
+        $masjid = Masjid::factory()->create();
+
+        $order = Order::factory()->create([
+            'masjid_id' => $masjid->id,
+            'technician_id' => $tech->id,
+            'status' => Order::STATUS_PEKERJAAN_SELESAI,
+        ]);
+
+        // 1. Akses halaman pembayaran
+        $responsePage = $this->actingAs($tech)->get('/teknisi/order/' . $order->id . '/pembayaran');
+        $responsePage->assertStatus(200);
+        $responsePage->assertSee('Pelaporan Bukti Pembayaran');
+
+        // 2. Unggah bukti foto pembayaran
+        $proofFile = UploadedFile::fake()->image('bukti_transfer_dkm.jpg', 800, 600);
+
+        $responseUpload = $this->actingAs($tech)->post('/teknisi/order/' . $order->id . '/lapor-bayar', [
+            'payment_method' => 'transfer',
+            'payment_proof' => $proofFile,
+        ]);
+
+        $responseUpload->assertRedirect('/teknisi/order/' . $order->id . '/pembayaran');
+        $responseUpload->assertSessionHas('success');
+
+        $freshOrder = $order->fresh();
+        $this->assertEquals(Order::STATUS_MENUNGGU_VERIFIKASI, $freshOrder->status);
+        $this->assertEquals('transfer', $freshOrder->payment_method);
+        $this->assertNotNull($freshOrder->payment_proof);
+        Storage::disk('public')->assertExists($freshOrder->payment_proof);
+    }
+
+    /**
+     * Test data servis lapangan terkunci setelah pekerjaan dikonfirmasi selesai.
+     */
+    public function test_technician_cannot_modify_photos_or_spareparts_after_work_is_completed(): void
+    {
+        Storage::fake('public');
+
+        $tech = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
+
+        $order = Order::factory()->create([
+            'technician_id' => $tech->id,
+            'status' => Order::STATUS_PEKERJAAN_SELESAI,
+        ]);
+
+        // 1. Tidak bisa upload foto baru
+        $file = UploadedFile::fake()->image('foto_baru.jpg');
+        $respPhoto = $this->actingAs($tech)->post('/teknisi/order/' . $order->id . '/foto', [
+            'photo' => $file,
+            'photo_type' => 'sesudah',
+        ]);
+        $respPhoto->assertSessionHas('error');
+
+        // 2. Tidak bisa tambah sparepart
+        $respSparepart = $this->actingAs($tech)->post('/teknisi/order/' . $order->id . '/sparepart', [
+            'item_name' => 'Kapasitor',
+            'quantity' => 1,
+            'price' => 50000,
+        ]);
+        $respSparepart->assertSessionHas('error');
+
+        // 3. Tidak bisa batalkan mulai kerja
+        $respBatal = $this->actingAs($tech)->post('/teknisi/order/' . $order->id . '/batal-mulai');
+        $respBatal->assertSessionHas('error');
+    }
+
+    /**
+     * Test teknisi dapat mengunggah bukti pembayaran setelah pekerjaan dikonfirmasi selesai.
+     */
+    public function test_technician_can_upload_payment_proof_after_work_completed(): void
+    {
+        Storage::fake('public');
+
+        $tech = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
+
+        $order = Order::factory()->create([
+            'technician_id' => $tech->id,
+            'status' => Order::STATUS_PEKERJAAN_SELESAI,
+            'payment_proof' => null,
+        ]);
+
+        $proofFile = UploadedFile::fake()->image('struk_atm.jpg', 600, 800);
+
+        $response = $this->actingAs($tech)->post('/teknisi/order/' . $order->id . '/lapor-bayar', [
+            'payment_method' => 'transfer',
+            'payment_proof' => $proofFile,
+        ]);
+
+        $response->assertRedirect('/teknisi/order/' . $order->id . '/pembayaran');
+        $response->assertSessionHas('success');
+
+        $freshOrder = $order->fresh();
+        $this->assertEquals(Order::STATUS_MENUNGGU_VERIFIKASI, $freshOrder->status);
+        $this->assertEquals('transfer', $freshOrder->payment_method);
+        $this->assertNotNull($freshOrder->payment_proof);
+        Storage::disk('public')->assertExists($freshOrder->payment_proof);
     }
 
     /**
@@ -355,5 +462,73 @@ class TechnicianTest extends TestCase
         $this->assertDatabaseMissing('order_spareparts', ['id' => $kapasitor->id]);
         // Sisa total: 200.000
         $this->assertEquals(200000, $order->fresh()->additional_amount);
+    }
+
+    /**
+     * Test teknisi dapat mengelola unit AC (tambah, edit, hapus) HANYA untuk masjid yang ditugaskan kepadanya.
+     */
+    public function test_technician_can_manage_ac_units_for_assigned_masjid_only(): void
+    {
+        $tech = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
+        $otherTech = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
+
+        $masjid = Masjid::factory()->create(['name' => 'Masjid Al-Ikhlas']);
+
+        $assignedOrder = Order::factory()->create([
+            'masjid_id' => $masjid->id,
+            'technician_id' => $tech->id,
+            'status' => Order::STATUS_DIKERJAKAN,
+        ]);
+
+        $unassignedOrder = Order::factory()->create([
+            'technician_id' => $otherTech->id,
+            'status' => Order::STATUS_DIKERJAKAN,
+        ]);
+
+        // 1. Teknisi berhasil menambah unit AC pada masjid yang ditugaskan kepadanya
+        $responseAdd = $this->actingAs($tech)->post('/teknisi/order/' . $assignedOrder->id . '/ac', [
+            'room_name' => 'Shaf Utama Depan',
+            'ac_type' => '2 PK',
+            'brand' => 'Daikin',
+            'quantity' => 4,
+        ]);
+        $responseAdd->assertRedirect();
+        $this->assertDatabaseHas('ac_units', [
+            'masjid_id' => $masjid->id,
+            'room_name' => 'Shaf Utama Depan',
+            'ac_type' => '2 PK',
+            'quantity' => 4,
+        ]);
+
+        $acUnit = \App\Models\AcUnit::where('masjid_id', $masjid->id)->first();
+
+        // 2. Teknisi berhasil mengedit unit AC masjid tersebut
+        $responseEdit = $this->actingAs($tech)->put('/teknisi/order/' . $assignedOrder->id . '/ac/' . $acUnit->id, [
+            'room_name' => 'Shaf Utama Depan Kanan',
+            'ac_type' => '2 PK',
+            'brand' => 'Daikin Inverter',
+            'quantity' => 5,
+        ]);
+        $responseEdit->assertRedirect();
+        $this->assertDatabaseHas('ac_units', [
+            'id' => $acUnit->id,
+            'room_name' => 'Shaf Utama Depan Kanan',
+            'quantity' => 5,
+        ]);
+
+        // 3. Teknisi TIDAK BISA mengelola AC di order masjid yang BUKAN ditugaskan kepadanya (403 Forbidden)
+        $responseForbidden = $this->actingAs($tech)->post('/teknisi/order/' . $unassignedOrder->id . '/ac', [
+            'room_name' => 'Ruang DKM',
+            'ac_type' => '1 PK',
+            'quantity' => 1,
+        ]);
+        $responseForbidden->assertStatus(403);
+
+        // 4. Teknisi berhasil menghapus unit AC pada masjid yang ditugaskan
+        $responseDelete = $this->actingAs($tech)->delete('/teknisi/order/' . $assignedOrder->id . '/ac/' . $acUnit->id);
+        $responseDelete->assertRedirect();
+        $this->assertDatabaseMissing('ac_units', [
+            'id' => $acUnit->id,
+        ]);
     }
 }

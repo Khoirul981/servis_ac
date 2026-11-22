@@ -8,11 +8,69 @@
     selectedOrder: null,
     activePhotos: [],
     activeOrderNumber: '',
-    openAssign(order) {
+    assignDate: '',
+    assignTime: 'Pagi (08:30 - 11:30 WIB)',
+    assignTechId: '',
+    techSchedules: [],
+    loadingSchedules: false,
+
+    async openAssign(order) {
         this.selectedOrder = order;
+        this.assignDate = order.service_date ? order.service_date.split('T')[0] : '{{ now()->toDateString() }}';
+        this.assignTime = order.service_time || 'Pagi (08:30 - 11:30 WIB)';
+        this.assignTechId = order.technician_id || '';
         this.showAssignModal = true;
+        await this.checkTechSchedules();
     },
+
+    async checkTechSchedules() {
+        if (!this.assignDate) return;
+        this.loadingSchedules = true;
+        try {
+            const excludeId = this.selectedOrder ? this.selectedOrder.id : 0;
+            const res = await fetch(`/admin/api/technician-schedule?date=${this.assignDate}&exclude_order_id=${excludeId}`);
+            if (res.ok) {
+                const data = await res.json();
+                this.techSchedules = data.technicians || [];
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            this.loadingSchedules = false;
+        }
+    },
+
+    get selectedTechConflict() {
+        if (!this.assignTechId || !this.assignTime) return null;
+        const tech = this.techSchedules.find(t => t.id == this.assignTechId);
+        if (!tech || !tech.tasks) return null;
+        return tech.tasks.find(task => task.service_time === this.assignTime);
+    },
+
+    get selectedTechOtherTasks() {
+        if (!this.assignTechId || !this.assignTime) return [];
+        const tech = this.techSchedules.find(t => t.id == this.assignTechId);
+        if (!tech || !tech.tasks) return [];
+        return tech.tasks.filter(task => task.service_time !== this.assignTime);
+    },
+
+    getTechOptionLabel(tech) {
+        const schedule = this.techSchedules.find(t => t.id == tech.id);
+        if (!schedule) return tech.name + ' (' + tech.phone + ')';
+        if (schedule.task_count === 0) {
+            return tech.name + ' - Tersedia (0 Tugas)';
+        }
+        const hasSlotConflict = schedule.tasks.some(task => task.service_time === this.assignTime);
+        if (hasSlotConflict) {
+            return tech.name + ' - [BENTROK di Sesi Ini] (' + schedule.task_count + ' tugas)';
+        }
+        return tech.name + ' - ' + schedule.task_count + ' tugas (Sesi ini kosong)';
+    },
+
     openPay(order) {
+        if (!order.payment_method) {
+            order.payment_method = 'transfer';
+        }
         this.selectedOrder = order;
         this.showPayModal = true;
     },
@@ -57,12 +115,12 @@
             </span>
         </a>
 
-        <!-- Tab 3: Menunggu Bayar -->
-        <a href="{{ route('admin.dashboard', ['tab' => 'menunggu_bayar']) }}" 
-           class="flex-1 min-w-[130px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all {{ $activeTab === 'menunggu_bayar' ? 'bg-[#1E3E34] text-white font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }}">
-            <span>Menunggu Pembayaran</span>
-            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $activeTab === 'menunggu_bayar' ? 'bg-white text-[#1E3E34]' : 'bg-[#FFEDD5] text-[#C2410C]' }}">
-                {{ $counts['menunggu_bayar'] }}
+        <!-- Tab 3: Verifikasi Bukti Foto -->
+        <a href="{{ route('admin.dashboard', ['tab' => 'verifikasi_bukti']) }}" 
+           class="flex-1 min-w-[130px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all {{ in_array($activeTab, ['verifikasi_bukti', 'menunggu_bayar']) ? 'bg-[#1E3E34] text-white font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }}">
+            <span>Verifikasi Bukti Foto</span>
+            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ in_array($activeTab, ['verifikasi_bukti', 'menunggu_bayar']) ? 'bg-white text-[#1E3E34]' : 'bg-[#FFEDD5] text-[#C2410C]' }}">
+                {{ $counts['verifikasi_bukti'] ?? ($counts['menunggu_bayar'] ?? 0) }}
             </span>
         </a>
 
@@ -126,6 +184,15 @@
                                         </button>
                                     </div>
                                 @endif
+                                @if($order->payment_proof)
+                                    <div class="mt-1">
+                                        <button type="button" 
+                                                @click="openPay({{ Js::from($order) }})"
+                                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] cursor-pointer">
+                                            Bukti Transfer Tersedia
+                                        </button>
+                                    </div>
+                                @endif
                             </td>
 
                             <!-- Teknisi -->
@@ -153,10 +220,18 @@
                                 <span class="inline-block px-2.5 py-1 rounded-md text-xs font-semibold
                                     {{ $order->status === 'pesanan_baru' ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]' : '' }}
                                     {{ in_array($order->status, ['dijadwalkan', 'dikerjakan']) ? 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]' : '' }}
+                                    {{ $order->status === 'pekerjaan_selesai' ? 'bg-amber-100 text-amber-800 border border-amber-300' : '' }}
+                                    {{ $order->status === 'menunggu_verifikasi' ? 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]' : '' }}
                                     {{ $order->status === 'menunggu_bayar' ? 'bg-[#FFEDD5] text-[#C2410C] border border-[#FDBA74]' : '' }}
                                     {{ $order->status === 'selesai' ? 'bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC]' : '' }}
                                     {{ $order->status === 'batal' ? 'bg-[#FEE2E2] text-[#B91C1C] border border-[#FCA5A5]' : '' }}">
-                                    {{ $order->statusLabel() }}
+                                    @if($order->status === 'pekerjaan_selesai')
+                                        Nunggu Bukti Teknisi
+                                    @elseif($order->status === 'menunggu_verifikasi')
+                                        Bukti Siap Diverifikasi
+                                    @else
+                                        {{ $order->statusLabel() }}
+                                    @endif
                                 </span>
                             </td>
 
@@ -181,15 +256,19 @@
                                                 class="px-3 py-1.5 rounded-md border border-gray-300 hover:bg-gray-100 text-gray-800 font-medium text-xs transition-colors cursor-pointer">
                                             Ubah Jadwal
                                         </button>
-                                    @elseif($order->status === 'menunggu_bayar')
+                                    @elseif(in_array($order->status, ['menunggu_verifikasi', 'menunggu_bayar']))
                                         <button type="button" 
                                                 @click="openPay({{ Js::from($order) }})"
                                                 class="px-3.5 py-1.5 rounded-md bg-[#1E3E34] hover:bg-[#142B24] text-white font-semibold text-xs transition-colors cursor-pointer">
-                                            Verifikasi Pelunasan
+                                            Verifikasi Bukti
                                         </button>
+                                    @elseif($order->status === 'pekerjaan_selesai')
+                                        <span class="text-xs text-gray-500 italic">
+                                            Menunggu Teknisi
+                                        </span>
                                     @elseif($order->status === 'selesai')
                                         <a href="{{ route('admin.order.receipt', $order->id) }}" 
-                                           class="px-3 py-1.5 rounded-md border border-gray-300 hover:bg-gray-100 text-gray-800 font-medium text-xs transition-colors inline-block text-decoration-none">
+                                            class="px-3 py-1.5 rounded-md border border-gray-300 hover:bg-gray-100 text-gray-800 font-medium text-xs transition-colors inline-block text-decoration-none">
                                             Kuitansi
                                         </a>
                                     @endif
@@ -240,38 +319,87 @@
                         <span class="text-gray-600 block mt-0.5" x-text="selectedOrder.ac_count + ' Unit AC &bull; ' + selectedOrder.dkm_complaint"></span>
                     </div>
 
-                    <!-- Pilih Teknisi -->
-                    <div class="space-y-1">
-                        <label class="block text-xs font-medium text-gray-800">Pilih Teknisi Lapangan:</label>
-                        <select name="technician_id" required class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
-                            <option value="">-- Pilih Teknisi --</option>
-                            @foreach($technicians as $tech)
-                                <option value="{{ $tech->id }}">{{ $tech->name }} ({{ $tech->phone }})</option>
-                            @endforeach
-                        </select>
-                    </div>
-
                     <!-- Tanggal Servis -->
                     <div class="space-y-1">
-                        <label class="block text-xs font-medium text-gray-800">Tanggal Kedatangan:</label>
+                        <label class="block text-xs font-semibold text-gray-800">Tanggal Kedatangan:</label>
                         <input type="date" name="service_date" required 
-                               :value="selectedOrder.service_date ? selectedOrder.service_date.split('T')[0] : '{{ now()->toDateString() }}'"
-                               class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34]">
+                               x-model="assignDate"
+                               @change="checkTechSchedules()"
+                               class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
                     </div>
 
                     <!-- Jam Servis -->
                     <div class="space-y-1">
-                        <label class="block text-xs font-medium text-gray-800">Jam Kedatangan:</label>
-                        <select name="service_time" required class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+                        <label class="block text-xs font-semibold text-gray-800">Sesi Jam Kedatangan:</label>
+                        <select name="service_time" required x-model="assignTime" class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
                             <option value="Pagi (08:30 - 11:30 WIB)">Pagi (08:30 - 11:30 WIB)</option>
                             <option value="Siang Ba'da Dzuhur (13:00 - 15:00 WIB)">Siang Ba'da Dzuhur (13:00 - 15:00 WIB)</option>
                             <option value="Sore Ba'da Ashar (16:00 - 17:30 WIB)">Sore Ba'da Ashar (16:00 - 17:30 WIB)</option>
                         </select>
                     </div>
 
-                    <div class="flex items-center justify-end gap-2 pt-2">
+                    <!-- Pilih Teknisi -->
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-xs font-semibold text-gray-800">Pilih Teknisi Lapangan:</label>
+                            <span x-show="loadingSchedules" class="text-[11px] text-gray-500 italic">Memeriksa jadwal...</span>
+                        </div>
+                        <select name="technician_id" required x-model="assignTechId" 
+                                class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border text-xs text-gray-900 outline-none bg-white transition-colors"
+                                :class="selectedTechConflict ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[#1E3E34]'">
+                            <option value="">-- Pilih Teknisi --</option>
+                            @foreach($technicians as $tech)
+                                <option value="{{ $tech->id }}" x-text="getTechOptionLabel({{ Js::from($tech) }})">
+                                    {{ $tech->name }} ({{ $tech->phone }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- KOTAK STATUS JADWAL & INDIKATOR BENTROK -->
+                    <div class="space-y-2 pt-1">
+                        <!-- Peringatan Bentrok Jadwal -->
+                        <div x-show="selectedTechConflict" x-cloak class="p-3.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 space-y-1">
+                            <div class="flex items-center justify-between">
+                                <strong class="font-bold text-red-900 block">Peringatan: Jadwal Bentrok!</strong>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-200 text-red-900">BENTROK</span>
+                            </div>
+                            <p class="leading-relaxed">
+                                Teknisi ini sudah memiliki jadwal servis di <strong x-text="selectedTechConflict ? selectedTechConflict.masjid_name : ''"></strong> pada sesi <strong x-text="assignTime"></strong>.
+                            </p>
+                            <span class="block text-[11px] text-red-700 italic">
+                                * Tombol simpan dinonaktifkan. Silakan pilih sesi jam lain atau teknisi yang tersedia.
+                            </span>
+                        </div>
+
+                        <!-- Jadwal Lain di Hari Tersebut Tapi Beda Sesi (Aman) -->
+                        <div x-show="!selectedTechConflict && selectedTechOtherTasks.length > 0" x-cloak class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 space-y-1.5">
+                            <strong class="font-semibold block text-blue-900">Info Jadwal Teknisi di Hari Ini:</strong>
+                            <ul class="list-disc list-inside text-[11px] space-y-0.5 text-blue-800">
+                                <template x-for="task in selectedTechOtherTasks" :key="task.order_id">
+                                    <li><span x-text="task.service_time + ' di ' + task.masjid_name"></span></li>
+                                </template>
+                            </ul>
+                            <p class="text-[11px] text-blue-700">
+                                Sesi <strong x-text="assignTime"></strong> masih aman dan tersedia untuk ditugaskan.
+                            </p>
+                        </div>
+
+                        <!-- Tersedia Penuh (0 Tugas) -->
+                        <div x-show="assignTechId && !selectedTechConflict && selectedTechOtherTasks.length === 0" x-cloak class="p-2.5 bg-[#EBF2EE] border border-[#1E3E34]/20 rounded-lg text-xs text-[#1E3E34] flex items-center justify-between">
+                            <span>Teknisi tersedia penuh pada tanggal ini (0 tugas sebelumnya).</span>
+                            <span class="font-bold text-[10px] px-2 py-0.5 rounded bg-[#1E3E34] text-white">TERSEDIA</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
                         <button type="button" @click="showAssignModal = false" class="px-4 py-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">Batal</button>
-                        <button type="submit" class="px-5 py-2.5 text-xs font-semibold text-white bg-[#1E3E34] hover:bg-[#142B24] rounded-lg cursor-pointer transition-colors">Simpan Penugasan</button>
+                        <button type="submit" 
+                                :disabled="selectedTechConflict"
+                                class="px-5 py-2.5 text-xs font-semibold text-white rounded-lg transition-colors"
+                                :class="selectedTechConflict ? 'opacity-50 cursor-not-allowed bg-gray-400' : 'bg-[#1E3E34] hover:bg-[#142B24] cursor-pointer'">
+                            Simpan Penugasan
+                        </button>
                     </div>
                 </form>
             </template>
@@ -285,12 +413,15 @@
          x-cloak
          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
         <div @click.away="showPayModal = false" 
-             class="bg-white rounded-xl border border-gray-200 max-w-md w-full p-6 shadow-xl space-y-4">
+             class="bg-white rounded-xl border border-gray-200 max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
             
             <div class="flex items-center justify-between pb-3 border-b border-gray-100">
-                <h3 class="text-base font-bold text-gray-900">
-                    Verifikasi Pelunasan Pembayaran
-                </h3>
+                <div>
+                    <h3 class="text-base font-bold text-gray-900">
+                        Verifikasi Pelunasan Pembayaran
+                    </h3>
+                    <p class="text-xs text-gray-500" x-text="'Nomor Pesanan: ' + (selectedOrder ? selectedOrder.order_number : '')"></p>
+                </div>
                 <button type="button" @click="showPayModal = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer">&times;</button>
             </div>
 
@@ -298,6 +429,39 @@
                 <form :action="'/admin/order/' + selectedOrder.id + '/pay'" method="POST" class="space-y-4">
                     @csrf
 
+                    <!-- Foto Bukti Pembayaran / Transfer dari Teknisi -->
+                    <template x-if="selectedOrder.payment_proof">
+                        <div class="p-3.5 bg-blue-50/70 rounded-xl border border-blue-200 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                                    Foto Bukti Pembayaran dari Teknisi
+                                </span>
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 uppercase"
+                                      x-text="'Metode: ' + (selectedOrder.payment_method || 'transfer')"></span>
+                            </div>
+
+                            <div class="rounded-lg overflow-hidden border border-blue-200 bg-gray-900 flex items-center justify-center max-h-64">
+                                <img :src="'/storage/' + selectedOrder.payment_proof" 
+                                     alt="Bukti Pembayaran" 
+                                     class="max-h-64 w-auto object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                                     @click="window.open('/storage/' + selectedOrder.payment_proof, '_blank')">
+                            </div>
+
+                            <div class="flex items-center justify-between text-[11px] text-blue-800 pt-0.5">
+                                <span>Klik gambar untuk melihat resolusi penuh</span>
+                                <a :href="'/storage/' + selectedOrder.payment_proof" target="_blank" class="font-bold underline hover:text-blue-900">
+                                    Buka Foto di Tab Baru &rarr;
+                                </a>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="!selectedOrder.payment_proof">
+                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-600">
+                            <span>Teknisi tidak menyertakan foto bukti transfer (pembayaran tunai/manual).</span>
+                        </div>
+                    </template>
+
+                    <!-- Rincian Biaya -->
                     <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 text-xs space-y-1.5">
                         <span class="text-gray-900 font-bold block" x-text="selectedOrder.masjid.name"></span>
                         <div class="flex justify-between text-gray-600">
@@ -318,18 +482,21 @@
 
                     <!-- Pilih Metode Bayar -->
                     <div class="space-y-1.5">
-                        <label class="block text-xs font-medium text-gray-800">Metode Pembayaran:</label>
+                        <label class="block text-xs font-medium text-gray-800">Konfirmasi Metode Pembayaran:</label>
                         <div class="grid grid-cols-3 gap-2">
-                            <label class="border border-gray-300 rounded-lg p-2.5 text-center cursor-pointer text-xs font-medium hover:border-[#1E3E34]">
-                                <input type="radio" name="payment_method" value="transfer" checked class="mb-1 block mx-auto">
+                            <label class="border border-gray-300 rounded-lg p-2.5 text-center cursor-pointer text-xs font-medium hover:border-[#1E3E34]"
+                                   :class="selectedOrder.payment_method === 'transfer' ? 'border-[#1E3E34] bg-[#EBF2EE] text-[#1E3E34] font-bold' : ''">
+                                <input type="radio" name="payment_method" value="transfer" x-model="selectedOrder.payment_method" class="mb-1 block mx-auto">
                                 <span>Transfer</span>
                             </label>
-                            <label class="border border-gray-300 rounded-lg p-2.5 text-center cursor-pointer text-xs font-medium hover:border-[#1E3E34]">
-                                <input type="radio" name="payment_method" value="qris" class="mb-1 block mx-auto">
+                            <label class="border border-gray-300 rounded-lg p-2.5 text-center cursor-pointer text-xs font-medium hover:border-[#1E3E34]"
+                                   :class="selectedOrder.payment_method === 'qris' ? 'border-[#1E3E34] bg-[#EBF2EE] text-[#1E3E34] font-bold' : ''">
+                                <input type="radio" name="payment_method" value="qris" x-model="selectedOrder.payment_method" class="mb-1 block mx-auto">
                                 <span>QRIS</span>
                             </label>
-                            <label class="border border-gray-300 rounded-lg p-2.5 text-center cursor-pointer text-xs font-medium hover:border-[#1E3E34]">
-                                <input type="radio" name="payment_method" value="cash" class="mb-1 block mx-auto">
+                            <label class="border border-gray-300 rounded-lg p-2.5 text-center cursor-pointer text-xs font-medium hover:border-[#1E3E34]"
+                                   :class="selectedOrder.payment_method === 'cash' ? 'border-[#1E3E34] bg-[#EBF2EE] text-[#1E3E34] font-bold' : ''">
+                                <input type="radio" name="payment_method" value="cash" x-model="selectedOrder.payment_method" class="mb-1 block mx-auto">
                                 <span>Tunai</span>
                             </label>
                         </div>
@@ -337,7 +504,9 @@
 
                     <div class="flex items-center justify-end gap-2 pt-2">
                         <button type="button" @click="showPayModal = false" class="px-4 py-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">Batal</button>
-                        <button type="submit" class="px-5 py-2.5 text-xs font-semibold text-white bg-[#1E3E34] hover:bg-[#142B24] rounded-lg cursor-pointer transition-colors">Verifikasi Lunas & Buat Kuitansi</button>
+                        <button type="submit" class="px-5 py-2.5 text-xs font-semibold text-white bg-[#1E3E34] hover:bg-[#142B24] rounded-lg cursor-pointer transition-colors">
+                            Verifikasi Lunas & Buat Kuitansi
+                        </button>
                     </div>
                 </form>
             </template>

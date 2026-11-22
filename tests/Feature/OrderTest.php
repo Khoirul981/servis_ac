@@ -285,4 +285,125 @@ class OrderTest extends TestCase
         $response->assertRedirect('/pesan');
         $response->assertSessionHasErrors('track_order_number');
     }
+
+    /**
+     * Test form pemesanan dan API autocomplete memuat data unit AC terdaftar.
+     */
+    public function test_order_form_displays_ac_units_for_registered_masjid(): void
+    {
+        $masjid = Masjid::factory()->create(['name' => 'Masjid Raya Bintaro']);
+
+        \App\Models\AcUnit::create([
+            'masjid_id' => $masjid->id,
+            'room_name' => 'Ruang Sholat Utama',
+            'ac_type' => '2 PK',
+            'brand' => 'Daikin',
+            'quantity' => 4,
+        ]);
+
+        // 1. Cek di halaman form pemesanan
+        $response = $this->get('/pesan');
+        $response->assertStatus(200);
+        $response->assertSee('Masjid Raya Bintaro');
+        $response->assertSee('Ruang Sholat Utama');
+        $response->assertSee('2 PK');
+
+        // 2. Cek endpoint autocomplete
+        $apiResponse = $this->getJson('/api/masjid-autocomplete?q=Bintaro');
+        $apiResponse->assertStatus(200);
+        $apiResponse->assertJsonFragment([
+            'name' => 'Masjid Raya Bintaro',
+        ]);
+        $data = $apiResponse->json();
+        $this->assertNotEmpty($data[0]['ac_units']);
+        $this->assertEquals('Ruang Sholat Utama', $data[0]['ac_units'][0]['room_name']);
+        $this->assertEquals(4, $data[0]['ac_units'][0]['quantity']);
+    }
+
+    /**
+     * Test pemesanan multi-AC dan multi-kategori layanan (contoh: 9 unit AC berbagai PK dan keluhan).
+     */
+    public function test_user_can_submit_order_with_multiple_ac_service_items(): void
+    {
+        $masjid = Masjid::factory()->create([
+            'name' => 'Masjid Al-Ittihad',
+            'address' => 'Jl. Tebet Barat Dalam',
+            'pic_name' => 'Pak Bambang',
+            'pic_phone' => '081234567899',
+        ]);
+
+        $payload = [
+            'is_new_masjid' => '0',
+            'masjid_id' => $masjid->id,
+            'address' => 'Jl. Tebet Barat Dalam',
+            'pic_name' => 'Pak Bambang',
+            'pic_phone' => '081234567899',
+            'service_items' => [
+                [
+                    'ac_type' => '2 PK',
+                    'service_category' => 'Cuci Rutin',
+                    'room_name' => 'Ruang Utama',
+                    'quantity' => 4,
+                ],
+                [
+                    'ac_type' => '1 PK',
+                    'service_category' => 'Cuci Rutin',
+                    'room_name' => 'Ruang Imam',
+                    'quantity' => 1,
+                ],
+                [
+                    'ac_type' => '2 PK',
+                    'service_category' => 'Kurang Dingin / Bocor Air',
+                    'room_name' => 'Ruang Wanita',
+                    'quantity' => 2,
+                ],
+                [
+                    'ac_type' => '5 PK',
+                    'service_category' => 'Cuci Rutin',
+                    'room_name' => 'Ruang Serbaguna',
+                    'quantity' => 1,
+                ],
+                [
+                    'ac_type' => '5 PK',
+                    'service_category' => 'Mati Total / Rusak',
+                    'room_name' => 'Lantai 2',
+                    'quantity' => 1,
+                ],
+            ],
+            'service_date' => now()->addDay()->toDateString(),
+            'service_time' => 'Pagi (08:30 - 11:30 WIB)',
+        ];
+
+        $response = $this->post('/pesan', $payload);
+
+        // Perhitungan:
+        // 4 x 75.000 = 300.000
+        // 1 x 65.000 = 65.000
+        // 2 x 90.000 = 180.000
+        // 1 x 130.000 = 130.000
+        // 1 x 200.000 = 200.000
+        // Total = 875.000, Total AC = 9
+        $this->assertDatabaseHas('orders', [
+            'masjid_id' => $masjid->id,
+            'ac_count' => 9,
+            'base_amount' => 875000,
+        ]);
+
+        $order = Order::with('serviceItems')->latest()->first();
+        $this->assertNotNull($order);
+        $this->assertCount(5, $order->serviceItems);
+
+        $response->assertRedirect('/pesan/status/' . $order->order_number);
+
+        // Verifikasi halaman status menampilkan rincian tiap item
+        $statusResponse = $this->get('/pesan/status/' . $order->order_number);
+        $statusResponse->assertStatus(200);
+        $statusResponse->assertSee('Cuci Rutin (2 PK)');
+        $statusResponse->assertSee('Ruang Utama');
+        $statusResponse->assertSee('Cuci Rutin (1 PK)');
+        $statusResponse->assertSee('Kurang Dingin / Bocor Air (2 PK)');
+        $statusResponse->assertSee('Cuci Rutin (5 PK)');
+        $statusResponse->assertSee('Mati Total / Rusak (5 PK)');
+        $statusResponse->assertSee('875.000');
+    }
 }

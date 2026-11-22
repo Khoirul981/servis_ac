@@ -116,14 +116,28 @@ class EndToEndWorkflowTest extends TestCase
         $this->assertEquals(375000, $order->grandTotal()); // 225.000 + 150.000
 
         // =========================================================================
-        // TAHAP 7: Teknisi menyelesaikan servis di lokasi (Status -> menunggu_bayar)
+        // TAHAP 7: Teknisi menyelesaikan servis di lokasi (Status -> pekerjaan_selesai & redirect ke pembayaran)
         // =========================================================================
         $this->actingAs($tech)->post('/teknisi/order/' . $order->id . '/selesai')
-            ->assertRedirect('/teknisi');
+            ->assertRedirect('/teknisi/order/' . $order->id . '/pembayaran');
 
         $order->refresh();
-        $this->assertEquals(Order::STATUS_MENUNGGU_BAYAR, $order->status);
+        $this->assertEquals(Order::STATUS_PEKERJAAN_SELESAI, $order->status);
         $this->assertEquals(now()->toDateString(), $order->masjid->fresh()->last_service_date->toDateString());
+
+        // =========================================================================
+        // TAHAP 7.5: Teknisi mengunggah bukti transfer dari DKM (Status -> menunggu_verifikasi)
+        // =========================================================================
+        $proofFile = \Illuminate\Http\UploadedFile::fake()->image('bukti_transfer.jpg');
+        $this->actingAs($tech)->post('/teknisi/order/' . $order->id . '/lapor-bayar', [
+            'payment_method' => 'qris',
+            'payment_proof' => $proofFile,
+        ])->assertRedirect('/teknisi/order/' . $order->id . '/pembayaran');
+
+        $order->refresh();
+        $this->assertEquals(Order::STATUS_MENUNGGU_VERIFIKASI, $order->status);
+        $this->assertEquals('qris', $order->payment_method);
+        $this->assertNotNull($order->payment_proof);
 
         // =========================================================================
         // TAHAP 8: Admin memverifikasi pelunasan uang masuk (Metode QRIS)

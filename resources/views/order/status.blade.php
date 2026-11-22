@@ -38,6 +38,8 @@
             <div>
                 <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider
                     @if($order->status === 'selesai') bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC]
+                    @elseif($order->status === 'menunggu_verifikasi') bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]
+                    @elseif($order->status === 'pekerjaan_selesai') bg-amber-100 text-amber-900 border border-amber-300
                     @elseif($order->status === 'menunggu_bayar') bg-orange-100 text-orange-800 border border-orange-200
                     @elseif($order->status === 'dikerjakan') bg-amber-100 text-amber-900 border border-amber-200
                     @elseif($order->status === 'dijadwalkan') bg-blue-100 text-blue-800 border border-blue-200
@@ -102,14 +104,46 @@
                             BELUM DIBAYAR
                         </h2>
                     </div>
-                    <span class="px-3 py-1 rounded-md bg-amber-200 text-amber-900 font-bold text-xs self-start sm:self-center">
-                        Menunggu Verifikasi Admin
+                    <span class="px-3 py-1 rounded-md text-xs font-bold self-start sm:self-center
+                        @if($order->status === 'menunggu_verifikasi') bg-blue-100 text-blue-900 border border-blue-300
+                        @elseif($order->status === 'pekerjaan_selesai') bg-amber-100 text-amber-900 border border-amber-300
+                        @else bg-amber-200 text-amber-900
+                        @endif">
+                        @if($order->status === 'menunggu_verifikasi')
+                            Menunggu Verifikasi Admin
+                        @elseif($order->status === 'pekerjaan_selesai')
+                            Menunggu Pelaporan Teknisi
+                        @else
+                            Menunggu Verifikasi Admin
+                        @endif
                     </span>
                 </div>
 
-                <p class="text-xs text-amber-800 leading-relaxed pt-2 border-t border-amber-200/70">
-                    Pembayaran servis dapat diselesaikan saat teknisi selesai bekerja di lokasi masjid atau melalui transfer yang akan diverifikasi oleh Admin.
-                </p>
+                @if($order->status === 'menunggu_verifikasi' || ($order->status === 'pekerjaan_selesai' && $order->payment_proof))
+                    <div class="pt-2 border-t border-amber-200/70 text-xs text-amber-900 space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                            <span class="font-bold">Bukti Pembayaran / Transfer Telah Dikirim Teknisi</span>
+                        </div>
+                        <p class="text-amber-800 text-[11px] leading-relaxed">
+                            Foto bukti pembayaran ({{ $order->paymentMethodLabel() }}) telah masuk ke sistem dan saat ini sedang dicek dan diverifikasi oleh Admin.
+                        </p>
+                    </div>
+                @elseif($order->status === 'pekerjaan_selesai')
+                    <div class="pt-2 border-t border-amber-200/70 text-xs text-amber-900 space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-amber-600"></span>
+                            <span class="font-bold">Pekerjaan Servis Selesai di Lokasi</span>
+                        </div>
+                        <p class="text-amber-800 text-[11px] leading-relaxed">
+                            Teknisi telah menyelesaikan pengerjaan AC di lokasi masjid. Menunggu teknisi mengirimkan laporan bukti pembayaran untuk diverifikasi Admin.
+                        </p>
+                    </div>
+                @else
+                    <p class="text-xs text-amber-800 leading-relaxed pt-2 border-t border-amber-200/70">
+                        Pembayaran servis dapat diselesaikan saat teknisi selesai bekerja di lokasi masjid atau melalui transfer yang akan diverifikasi oleh Admin.
+                    </p>
+                @endif
             </div>
         @endif
 
@@ -165,16 +199,36 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                        <tr>
-                            <td class="p-3">
-                                <strong class="text-gray-900 block">{{ $order->dkm_complaint }}</strong>
-                                <span class="text-gray-500 text-[11px]">Jasa perawatan pendingin ruang ibadah</span>
-                            </td>
-                            <td class="p-3 text-center font-semibold text-gray-800">{{ $order->ac_count }} Unit</td>
-                            <td class="p-3 text-right font-semibold text-gray-800">
-                                Rp {{ number_format($order->base_amount, 0, ',', '.') }}
-                            </td>
-                        </tr>
+                        @if($order->serviceItems->isNotEmpty())
+                            @foreach($order->serviceItems as $sItem)
+                                <tr>
+                                    <td class="p-3">
+                                        <div class="font-bold text-gray-900 text-xs">
+                                            {{ $sItem->service_category }} ({{ $sItem->ac_type }})
+                                        </div>
+                                        @if($sItem->room_name)
+                                            <div class="text-[11px] text-gray-500">Ruangan: {{ $sItem->room_name }}</div>
+                                        @endif
+                                        <span class="text-[10px] text-gray-400">@ Rp {{ number_format($sItem->price_per_unit, 0, ',', '.') }} / unit</span>
+                                    </td>
+                                    <td class="p-3 text-center font-semibold text-gray-800">{{ $sItem->quantity }} Unit</td>
+                                    <td class="p-3 text-right font-semibold text-gray-800">
+                                        Rp {{ number_format($sItem->subtotal, 0, ',', '.') }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        @else
+                            <tr>
+                                <td class="p-3">
+                                    <strong class="text-gray-900 block">{{ $order->dkm_complaint }}</strong>
+                                    <span class="text-gray-500 text-[11px]">Jasa perawatan pendingin ruang ibadah</span>
+                                </td>
+                                <td class="p-3 text-center font-semibold text-gray-800">{{ $order->ac_count }} Unit</td>
+                                <td class="p-3 text-right font-semibold text-gray-800">
+                                    Rp {{ number_format($order->base_amount, 0, ',', '.') }}
+                                </td>
+                            </tr>
+                        @endif
 
                         <!-- Rincian Multi-Item Suku Cadang Jika Ada -->
                         @if($order->spareparts->isNotEmpty())

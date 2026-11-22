@@ -97,15 +97,45 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    <tr>
-                        <td class="p-3.5">
-                            <strong class="text-gray-900 block text-xs">{{ $order->dkm_complaint }}</strong>
-                            <span class="text-gray-500 text-[11px]">Pembersihan filter, evaporator, blower indoor, condenser outdoor & pengecekan kelistrikan</span>
-                        </td>
-                        <td class="p-3.5 text-center font-semibold text-gray-800">{{ $order->ac_count }}</td>
-                        <td class="p-3.5 text-right font-semibold text-gray-800">Rp {{ number_format($order->base_amount, 0, ',', '.') }}</td>
-                    </tr>
-                    @if($order->additional_amount > 0)
+                    @if($order->serviceItems->isNotEmpty())
+                        @foreach($order->serviceItems as $sItem)
+                            <tr>
+                                <td class="p-3.5">
+                                    <strong class="text-gray-900 block text-xs">
+                                        {{ $sItem->service_category }} ({{ $sItem->ac_type }})
+                                    </strong>
+                                    <span class="text-gray-500 text-[11px]">
+                                        @if($sItem->room_name) Lokasi: {{ $sItem->room_name }} &bull; @endif
+                                        @ Rp {{ number_format($sItem->price_per_unit, 0, ',', '.') }} / unit
+                                    </span>
+                                </td>
+                                <td class="p-3.5 text-center font-semibold text-gray-800">{{ $sItem->quantity }}</td>
+                                <td class="p-3.5 text-right font-semibold text-gray-800">Rp {{ number_format($sItem->subtotal, 0, ',', '.') }}</td>
+                            </tr>
+                        @endforeach
+                    @else
+                        <tr>
+                            <td class="p-3.5">
+                                <strong class="text-gray-900 block text-xs">{{ $order->dkm_complaint }}</strong>
+                                <span class="text-gray-500 text-[11px]">Pembersihan filter, evaporator, blower indoor, condenser outdoor & pengecekan kelistrikan</span>
+                            </td>
+                            <td class="p-3.5 text-center font-semibold text-gray-800">{{ $order->ac_count }}</td>
+                            <td class="p-3.5 text-right font-semibold text-gray-800">Rp {{ number_format($order->base_amount, 0, ',', '.') }}</td>
+                        </tr>
+                    @endif
+
+                    @if($order->spareparts->isNotEmpty())
+                        @foreach($order->spareparts as $item)
+                            <tr>
+                                <td class="p-3.5">
+                                    <strong class="text-gray-900 block text-xs">{{ $item->item_name }}</strong>
+                                    <span class="text-gray-600 text-[11px]">@ Rp {{ number_format($item->price, 0, ',', '.') }} / unit</span>
+                                </td>
+                                <td class="p-3.5 text-center font-semibold text-gray-800">{{ $item->quantity }}x</td>
+                                <td class="p-3.5 text-right font-semibold text-gray-800">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                            </tr>
+                        @endforeach
+                    @elseif($order->additional_amount > 0)
                         <tr>
                             <td class="p-3.5">
                                 <strong class="text-gray-900 block text-xs">Suku Cadang / Tindakan Tambahan</strong>

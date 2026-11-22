@@ -107,15 +107,23 @@
 
             <div class="space-y-2">
                 @foreach($completedOrders as $order)
-                    <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-xs flex items-center justify-between text-xs">
+                    <a href="{{ route('technician.order.payment', $order->id) }}" class="bg-white rounded-xl border border-gray-200 p-4 shadow-xs flex items-center justify-between text-xs hover:border-[#1E3E34] transition-colors block text-decoration-none">
                         <div>
                             <span class="font-semibold text-gray-900 block text-sm">{{ $order->masjid->name }}</span>
                             <span class="text-gray-500">{{ $order->order_number }} &bull; {{ $order->ac_count }} Unit AC</span>
                         </div>
-                        <span class="px-2.5 py-1 rounded-md font-medium text-xs {{ $order->status === 'selesai' ? 'bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC]' : 'bg-[#FFEDD5] text-[#C2410C] border border-[#FDBA74]' }}">
-                            {{ $order->statusLabel() }}
-                        </span>
-                    </div>
+                        <div class="text-right">
+                            <span class="px-2.5 py-1 rounded-md font-medium text-xs 
+                                {{ $order->status === 'selesai' ? 'bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC]' : ($order->status === 'menunggu_verifikasi' ? 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]' : 'bg-[#FFEDD5] text-[#C2410C] border border-[#FDBA74]') }}">
+                                {{ $order->statusLabel() }}
+                            </span>
+                            @if(in_array($order->status, ['pekerjaan_selesai', 'menunggu_bayar']) && !$order->payment_proof)
+                                <span class="block text-[11px] font-semibold text-orange-700 mt-1">Upload Bukti Bayar &rarr;</span>
+                            @elseif($order->status === 'menunggu_verifikasi')
+                                <span class="block text-[11px] font-semibold text-blue-700 mt-1">Dicek Admin &rarr;</span>
+                            @endif
+                        </div>
+                    </a>
                 @endforeach
             </div>
         </div>

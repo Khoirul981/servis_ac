@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\OrderPhoto;
 use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -23,18 +25,27 @@ class AdminController extends Controller
         $counts = [
             'pesanan_baru' => Order::where('status', Order::STATUS_PESANAN_BARU)->count(),
             'berjalan' => Order::whereIn('status', [Order::STATUS_DIJADWALKAN, Order::STATUS_DIKERJAKAN])->count(),
-            'menunggu_bayar' => Order::where('status', Order::STATUS_MENUNGGU_BAYAR)->count(),
+            'verifikasi_bukti' => Order::whereIn('status', [
+                Order::STATUS_PEKERJAAN_SELESAI,
+                Order::STATUS_MENUNGGU_VERIFIKASI,
+                Order::STATUS_MENUNGGU_BAYAR,
+            ])->count(),
             'selesai' => Order::whereIn('status', [Order::STATUS_SELESAI, Order::STATUS_BATAL])->count(),
         ];
 
         // Query pesanan sesuai tab aktif
-        $ordersQuery = Order::with(['masjid', 'technician', 'photos']);
+        $ordersQuery = Order::with(['masjid', 'technician', 'photos', 'spareparts', 'serviceItems']);
 
         match ($activeTab) {
             'berjalan' => $ordersQuery->whereIn('status', [Order::STATUS_DIJADWALKAN, Order::STATUS_DIKERJAKAN])
                 ->orderByRaw("CASE WHEN status = 'dikerjakan' THEN 1 ELSE 2 END")
                 ->orderBy('service_date'),
-            Order::STATUS_MENUNGGU_BAYAR => $ordersQuery->where('status', Order::STATUS_MENUNGGU_BAYAR)
+            'verifikasi_bukti', 'menunggu_bayar', Order::STATUS_MENUNGGU_BAYAR => $ordersQuery->whereIn('status', [
+                    Order::STATUS_PEKERJAAN_SELESAI,
+                    Order::STATUS_MENUNGGU_VERIFIKASI,
+                    Order::STATUS_MENUNGGU_BAYAR,
+                ])
+                ->orderByRaw("CASE WHEN status = 'menunggu_verifikasi' THEN 1 WHEN status = 'pekerjaan_selesai' THEN 2 ELSE 3 END")
                 ->latest('updated_at'),
             Order::STATUS_SELESAI => $ordersQuery->whereIn('status', [Order::STATUS_SELESAI, Order::STATUS_BATAL])
                 ->latest('paid_at'),
@@ -51,7 +62,7 @@ class AdminController extends Controller
     }
 
     /**
-     * Penugasan Teknisi & Penetapan Jadwal.
+     * Penugasan Teknisi & Penetapan Jadwal (dengan Deteksi Bentrok Jadwal).
      */
     public function assignTechnician(Request $request, int $id): RedirectResponse
     {
@@ -67,14 +78,77 @@ class AdminController extends Controller
             'service_time.required' => 'Tentukan jam kedatangan teknisi.',
         ]);
 
+        $technicianId = (int) $request->input('technician_id');
+        $serviceDate = $request->input('service_date');
+        $serviceTime = $request->input('service_time');
+
+        // Deteksi Bentrok Jadwal: Cek apakah teknisi sudah memiliki tugas servis aktif di tanggal & jam/sesi yang sama persis
+        $conflict = Order::where('technician_id', $technicianId)
+            ->where('id', '!=', $order->id)
+            ->whereIn('status', [Order::STATUS_DIJADWALKAN, Order::STATUS_DIKERJAKAN])
+            ->whereDate('service_date', $serviceDate)
+            ->where('service_time', $serviceTime)
+            ->with('masjid')
+            ->first();
+
+        if ($conflict) {
+            $tech = User::find($technicianId);
+            $techName = $tech?->name ?? 'Teknisi terpilih';
+            $masjidName = $conflict->masjid?->name ?? 'masjid lain';
+            $tglIndo = Carbon::parse($serviceDate)->translatedFormat('d F Y');
+
+            return back()->withInput()->with('error', "Jadwal Bentrok! {$techName} sudah memiliki jadwal tugas servis di {$masjidName} pada tanggal {$tglIndo} sesi {$serviceTime}. Silakan pilih sesi jam lain atau teknisi yang tersedia.");
+        }
+
         $order->update([
-            'technician_id' => $request->input('technician_id'),
-            'service_date' => $request->input('service_date'),
-            'service_time' => $request->input('service_time'),
+            'technician_id' => $technicianId,
+            'service_date' => $serviceDate,
+            'service_time' => $serviceTime,
             'status' => Order::STATUS_DIJADWALKAN,
         ]);
 
         return back()->with('success', "Pesanan {$order->order_number} berhasil dijadwalkan dan ditugaskan ke {$order->technician->name}.");
+    }
+
+    /**
+     * API Pemeriksaan Jadwal & Ketersediaan Teknisi pada Tanggal Tertentu.
+     */
+    public function technicianSchedule(Request $request): JsonResponse
+    {
+        $date = $request->query('date', now()->toDateString());
+        $excludeOrderId = (int) $request->query('exclude_order_id', 0);
+
+        $technicians = User::where('role', User::ROLE_TECHNICIAN)
+            ->orderBy('name')
+            ->get(['id', 'name', 'phone']);
+
+        $busyOrders = Order::with('masjid:id,name')
+            ->whereIn('status', [Order::STATUS_DIJADWALKAN, Order::STATUS_DIKERJAKAN])
+            ->whereDate('service_date', $date)
+            ->when($excludeOrderId > 0, fn ($q) => $q->where('id', '!=', $excludeOrderId))
+            ->get(['id', 'technician_id', 'masjid_id', 'service_time', 'order_number']);
+
+        $schedules = $technicians->map(function ($tech) use ($busyOrders) {
+            $assigned = $busyOrders->where('technician_id', $tech->id)->values();
+
+            return [
+                'id' => $tech->id,
+                'name' => $tech->name,
+                'phone' => $tech->phone,
+                'task_count' => $assigned->count(),
+                'tasks' => $assigned->map(fn ($o) => [
+                    'order_id' => $o->id,
+                    'order_number' => $o->order_number,
+                    'masjid_name' => $o->masjid?->name ?? 'Masjid',
+                    'service_time' => $o->service_time,
+                ]),
+            ];
+        });
+
+        return response()->json([
+            'date' => $date,
+            'technicians' => $schedules,
+        ]);
     }
 
     /**
@@ -120,7 +194,7 @@ class AdminController extends Controller
      */
     public function receipt(int $id): View
     {
-        $order = Order::with(['masjid', 'technician', 'photos'])->findOrFail($id);
+        $order = Order::with(['masjid', 'technician', 'photos', 'spareparts', 'serviceItems'])->findOrFail($id);
 
         // Susun teks pesan kuitansi ke WhatsApp DKM
         $cleanPhone = preg_replace('/[^0-9]/', '', $order->masjid->pic_phone);

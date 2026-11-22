@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AcUnit;
 use App\Models\Order;
 use App\Models\OrderPhoto;
 use App\Models\OrderSparepart;
@@ -28,10 +29,15 @@ class TechnicianController extends Controller
             ->orderBy('service_date')
             ->get();
 
-        // Tugas yang sudah selesai dikerjakan teknisi (menunggu bayar atau selesai)
+        // Tugas yang sudah selesai dikerjakan teknisi (pekerjaan selesai, menunggu verifikasi, menunggu bayar atau selesai)
         $completedOrders = Order::with('masjid')
             ->where('technician_id', $technicianId)
-            ->whereIn('status', [Order::STATUS_MENUNGGU_BAYAR, Order::STATUS_SELESAI])
+            ->whereIn('status', [
+                Order::STATUS_PEKERJAAN_SELESAI,
+                Order::STATUS_MENUNGGU_VERIFIKASI,
+                Order::STATUS_MENUNGGU_BAYAR,
+                Order::STATUS_SELESAI,
+            ])
             ->latest('updated_at')
             ->limit(10)
             ->get();
@@ -44,7 +50,7 @@ class TechnicianController extends Controller
      */
     public function show(int $id): View
     {
-        $order = Order::with(['masjid', 'photos', 'spareparts'])->findOrFail($id);
+        $order = Order::with(['masjid.acUnits', 'photos', 'spareparts', 'serviceItems'])->findOrFail($id);
 
         // Pastikan teknisi hanya bisa mengakses order miliknya
         if ($order->technician_id !== Auth::id()) {
@@ -97,6 +103,10 @@ class TechnicianController extends Controller
             abort(403);
         }
 
+        if ($order->isWorkCompleted()) {
+            return back()->with('error', 'Pekerjaan servis telah selesai dikonfirmasi dan data terkunci.');
+        }
+
         if ($order->status === Order::STATUS_DIKERJAKAN) {
             $order->update([
                 'status' => Order::STATUS_DIJADWALKAN,
@@ -115,6 +125,10 @@ class TechnicianController extends Controller
 
         if ($order->technician_id !== Auth::id()) {
             abort(403);
+        }
+
+        if ($order->isWorkCompleted()) {
+            return back()->with('error', 'Pekerjaan servis telah selesai dikonfirmasi dan data foto terkunci.');
         }
 
         $request->validate([
@@ -149,6 +163,10 @@ class TechnicianController extends Controller
 
         if ($photo->order->technician_id !== Auth::id()) {
             abort(403);
+        }
+
+        if ($photo->order->isWorkCompleted()) {
+            return back()->with('error', 'Pekerjaan servis telah selesai dikonfirmasi dan data foto terkunci.');
         }
 
         $validated = $request->validate([
@@ -188,6 +206,10 @@ class TechnicianController extends Controller
             abort(403);
         }
 
+        if ($photo->order->isWorkCompleted()) {
+            return back()->with('error', 'Pekerjaan servis telah selesai dikonfirmasi dan data foto terkunci.');
+        }
+
         if ($photo->photo_url && Storage::disk('public')->exists($photo->photo_url)) {
             Storage::disk('public')->delete($photo->photo_url);
         }
@@ -206,6 +228,10 @@ class TechnicianController extends Controller
 
         if ($order->technician_id !== Auth::id()) {
             abort(403);
+        }
+
+        if ($order->isWorkCompleted()) {
+            return back()->with('error', 'Pekerjaan servis telah selesai dikonfirmasi dan data suku cadang terkunci.');
         }
 
         if ($request->has('item_name')) {
@@ -270,6 +296,10 @@ class TechnicianController extends Controller
             abort(403);
         }
 
+        if ($sparepart->order->isWorkCompleted()) {
+            return back()->with('error', 'Pekerjaan servis telah selesai dikonfirmasi dan data suku cadang terkunci.');
+        }
+
         $validated = $request->validate([
             'item_name' => ['required', 'string', 'max:255'],
             'quantity' => ['required', 'integer', 'min:1', 'max:999'],
@@ -305,6 +335,10 @@ class TechnicianController extends Controller
             abort(403);
         }
 
+        if ($sparepart->order->isWorkCompleted()) {
+            return back()->with('error', 'Pekerjaan servis telah selesai dikonfirmasi dan data suku cadang terkunci.');
+        }
+
         $order = $sparepart->order;
         $sparepart->delete();
         $order->recalculateSpareparts();
@@ -323,6 +357,10 @@ class TechnicianController extends Controller
             abort(403);
         }
 
+        if ($order->isWorkCompleted()) {
+            return back()->with('error', 'Pekerjaan servis telah selesai dikonfirmasi dan data suku cadang terkunci.');
+        }
+
         $order->spareparts()->delete();
         $order->update([
             'additional_amount' => 0,
@@ -333,10 +371,11 @@ class TechnicianController extends Controller
     }
 
     /**
-     * Tombol 4: Pekerjaan Selesai (dikerjakan -> menunggu_bayar).
-     * Wajib ada minimal 1 foto bukti terunggah.
+     * Tombol 4: Konfirmasi Selesai Pekerjaan Servis (dikerjakan -> pekerjaan_selesai).
+     * Wajib ada minimal 1 foto bukti terunggah di Langkah 2.
+     * Setelah ini, data pengerjaan fisik TERKUNCI dan teknisi dialihkan ke halaman pelaporan pembayaran terpisah.
      */
-    public function completeWork(int $id): RedirectResponse
+    public function completeWork(Request $request, int $id): RedirectResponse
     {
         $order = Order::with('photos')->findOrFail($id);
 
@@ -344,13 +383,17 @@ class TechnicianController extends Controller
             abort(403);
         }
 
-        // Validasi: Wajib ada minimal 1 foto bukti sebelum bisa diselesaikan
+        if ($order->isWorkCompleted()) {
+            return redirect()->route('technician.order.payment', $order->id);
+        }
+
+        // Validasi: Wajib ada minimal 1 foto bukti servis sebelum bisa diselesaikan
         if ($order->photos->isEmpty()) {
             return back()->with('error', 'Pekerjaan belum bisa diselesaikan: Mohon unggah minimal 1 foto bukti sebelum atau sesudah servis!');
         }
 
         $order->update([
-            'status' => Order::STATUS_MENUNGGU_BAYAR,
+            'status' => Order::STATUS_PEKERJAAN_SELESAI,
         ]);
 
         // Perbarui tanggal servis terakhir di master masjid
@@ -358,7 +401,144 @@ class TechnicianController extends Controller
             'last_service_date' => now()->toDateString(),
         ]);
 
-        return redirect()->route('technician.dashboard')
-            ->with('success', "Alhamdulillah! Pekerjaan servis di {$order->masjid->name} telah selesai. Pesanan diteruskan ke Admin untuk penagihan.");
+        return redirect()->route('technician.order.payment', $order->id)
+            ->with('success', "Alhamdulillah! Pekerjaan servis di {$order->masjid->name} telah selesai dikonfirmasi dan data pengerjaan terkunci. Silakan unggah bukti transfer/pembayaran dari pengurus DKM.");
+    }
+
+    /**
+     * Halaman Khusus Pelaporan & Upload Bukti Pembayaran oleh Teknisi.
+     */
+    public function paymentView(int $id): View
+    {
+        $order = Order::with(['masjid', 'photos', 'spareparts', 'serviceItems'])->findOrFail($id);
+
+        if ($order->technician_id !== Auth::id()) {
+            abort(403, 'Anda tidak ditugaskan untuk pesanan ini.');
+        }
+
+        return view('technician.payment', compact('order'));
+    }
+
+    /**
+     * Unggah Foto Bukti Pembayaran dari DKM ke Admin (status -> menunggu_verifikasi).
+     */
+    public function uploadPaymentProof(Request $request, int $id): RedirectResponse
+    {
+        $order = Order::findOrFail($id);
+
+        if ($order->technician_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'payment_method' => ['required', 'in:transfer,qris,cash'],
+            'payment_proof' => ['nullable', 'image', 'max:5120'],
+        ], [
+            'payment_method.required' => 'Pilih metode pembayaran yang digunakan pengurus DKM.',
+            'payment_method.in' => 'Metode pembayaran tidak valid.',
+            'payment_proof.image' => 'File bukti transfer/pembayaran harus berupa gambar foto.',
+            'payment_proof.max' => 'Ukuran foto bukti transfer maksimal 5 MB.',
+        ]);
+
+        $payload = [
+            'payment_method' => $validated['payment_method'],
+            'status' => Order::STATUS_MENUNGGU_VERIFIKASI,
+        ];
+
+        if ($request->hasFile('payment_proof')) {
+            if ($order->payment_proof && Storage::disk('public')->exists($order->payment_proof)) {
+                Storage::disk('public')->delete($order->payment_proof);
+            }
+            $payload['payment_proof'] = $request->file('payment_proof')->store('payment_proofs', 'public');
+        }
+
+        $order->update($payload);
+
+        return redirect()->route('technician.order.payment', $order->id)
+            ->with('success', 'Foto bukti pembayaran berhasil dikirim ke Admin. Status pesanan kini menunggu verifikasi Admin.');
+    }
+
+    /**
+     * Tambah Unit AC Baru untuk Masjid yang Ditugaskan ke Teknisi Ini.
+     */
+    public function storeAcUnit(Request $request, int $id): RedirectResponse
+    {
+        $order = Order::with('masjid')->findOrFail($id);
+
+        if ($order->technician_id !== Auth::id()) {
+            abort(403, 'Anda tidak memiliki hak akses untuk mengelola unit AC masjid ini.');
+        }
+
+        $validated = $request->validate([
+            'room_name' => ['required', 'string', 'max:100'],
+            'ac_type' => ['required', 'string', 'max:50'],
+            'brand' => ['nullable', 'string', 'max:50'],
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:999'],
+        ], [
+            'room_name.required' => 'Nama ruangan / lokasi penempatan AC wajib diisi.',
+            'ac_type.required' => 'Tipe / PK AC wajib diisi.',
+            'quantity.min' => 'Jumlah unit minimal 1.',
+        ]);
+
+        AcUnit::create([
+            'masjid_id' => $order->masjid_id,
+            'room_name' => trim($validated['room_name']),
+            'ac_type' => trim($validated['ac_type']),
+            'brand' => ! empty($validated['brand']) ? trim($validated['brand']) : null,
+            'quantity' => (int) ($validated['quantity'] ?? 1),
+        ]);
+
+        return back()->with('success', 'Data unit AC baru untuk masjid ini berhasil ditambahkan.');
+    }
+
+    /**
+     * Perbarui Data Unit AC Masjid yang Ditugaskan ke Teknisi Ini.
+     */
+    public function updateAcUnit(Request $request, int $id, int $unit_id): RedirectResponse
+    {
+        $order = Order::findOrFail($id);
+
+        if ($order->technician_id !== Auth::id()) {
+            abort(403, 'Anda tidak memiliki hak akses untuk mengelola unit AC masjid ini.');
+        }
+
+        $unit = AcUnit::where('masjid_id', $order->masjid_id)->findOrFail($unit_id);
+
+        $validated = $request->validate([
+            'room_name' => ['required', 'string', 'max:100'],
+            'ac_type' => ['required', 'string', 'max:50'],
+            'brand' => ['nullable', 'string', 'max:50'],
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:999'],
+        ], [
+            'room_name.required' => 'Nama ruangan / lokasi penempatan AC wajib diisi.',
+            'ac_type.required' => 'Tipe / PK AC wajib diisi.',
+            'quantity.min' => 'Jumlah unit minimal 1.',
+        ]);
+
+        $unit->update([
+            'room_name' => trim($validated['room_name']),
+            'ac_type' => trim($validated['ac_type']),
+            'brand' => ! empty($validated['brand']) ? trim($validated['brand']) : null,
+            'quantity' => (int) ($validated['quantity'] ?? $unit->quantity ?? 1),
+        ]);
+
+        return back()->with('success', 'Data unit AC berhasil diperbarui.');
+    }
+
+    /**
+     * Hapus Unit AC Masjid yang Ditugaskan ke Teknisi Ini.
+     */
+    public function destroyAcUnit(int $id, int $unit_id): RedirectResponse
+    {
+        $order = Order::findOrFail($id);
+
+        if ($order->technician_id !== Auth::id()) {
+            abort(403, 'Anda tidak memiliki hak akses untuk mengelola unit AC masjid ini.');
+        }
+
+        $unit = AcUnit::where('masjid_id', $order->masjid_id)->findOrFail($unit_id);
+        $unit->delete();
+
+        return back()->with('success', 'Data unit AC berhasil dihapus.');
     }
 }

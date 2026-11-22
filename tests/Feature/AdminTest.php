@@ -22,7 +22,8 @@ class AdminTest extends TestCase
 
         $this->actingAs($admin)->get('/admin?tab=pesanan_baru')->assertStatus(200)->assertSee('Pesanan Baru');
         $this->actingAs($admin)->get('/admin?tab=berjalan')->assertStatus(200)->assertSee('Sedang Berjalan');
-        $this->actingAs($admin)->get('/admin?tab=menunggu_bayar')->assertStatus(200)->assertSee('Menunggu Pembayaran');
+        $this->actingAs($admin)->get('/admin?tab=verifikasi_bukti')->assertStatus(200)->assertSee('Verifikasi Bukti Foto');
+        $this->actingAs($admin)->get('/admin?tab=menunggu_bayar')->assertStatus(200)->assertSee('Verifikasi Bukti Foto');
         $this->actingAs($admin)->get('/admin?tab=selesai')->assertStatus(200)->assertSee('Selesai');
     }
 
@@ -55,6 +56,120 @@ class AdminTest extends TestCase
     }
 
     /**
+     * Test admin dicegah menugaskan teknisi jika jadwal bentrok (tanggal & sesi jam sama persis).
+     */
+    public function test_admin_cannot_assign_technician_when_schedule_conflicts(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $tech = User::factory()->create(['role' => User::ROLE_TECHNICIAN, 'name' => 'Budi Teknisi']);
+        $targetDate = now()->addDays(2)->toDateString();
+        $targetSlot = 'Pagi (08:30 - 11:30 WIB)';
+
+        // Pesanan 1 sudah dijadwalkan dengan teknisi ini di tanggal & jam tersebut
+        $order1 = Order::factory()->create([
+            'status' => Order::STATUS_DIJADWALKAN,
+            'technician_id' => $tech->id,
+            'service_date' => $targetDate,
+            'service_time' => $targetSlot,
+        ]);
+
+        // Pesanan 2 baru
+        $order2 = Order::factory()->create([
+            'status' => Order::STATUS_PESANAN_BARU,
+            'technician_id' => null,
+        ]);
+
+        // Admin mencoba menugaskan teknisi yang sama di tanggal & jam yang sama
+        $response = $this->actingAs($admin)->post('/admin/order/' . $order2->id . '/assign', [
+            'technician_id' => $tech->id,
+            'service_date' => $targetDate,
+            'service_time' => $targetSlot,
+        ]);
+
+        // Penugasan harus ditolak dengan error bentrok
+        $response->assertSessionHas('error');
+        $this->assertStringContainsString('Jadwal Bentrok', session('error'));
+
+        // Pesanan 2 tetap berstatus pesanan_baru dan belum ditugaskan
+        $this->assertDatabaseHas('orders', [
+            'id' => $order2->id,
+            'technician_id' => null,
+            'status' => Order::STATUS_PESANAN_BARU,
+        ]);
+    }
+
+    /**
+     * Test admin dapat menugaskan teknisi di hari yang sama namun pada sesi jam berbeda (tidak bentrok).
+     */
+    public function test_admin_can_assign_technician_on_different_slot_same_day(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $tech = User::factory()->create(['role' => User::ROLE_TECHNICIAN, 'name' => 'Budi Teknisi']);
+        $targetDate = now()->addDays(2)->toDateString();
+
+        // Pesanan 1 di sesi Pagi
+        $order1 = Order::factory()->create([
+            'status' => Order::STATUS_DIJADWALKAN,
+            'technician_id' => $tech->id,
+            'service_date' => $targetDate,
+            'service_time' => 'Pagi (08:30 - 11:30 WIB)',
+        ]);
+
+        // Pesanan 2 ditugaskan ke teknisi yang sama tapi sesi Siang
+        $order2 = Order::factory()->create([
+            'status' => Order::STATUS_PESANAN_BARU,
+            'technician_id' => null,
+        ]);
+
+        $response = $this->actingAs($admin)->post('/admin/order/' . $order2->id . '/assign', [
+            'technician_id' => $tech->id,
+            'service_date' => $targetDate,
+            'service_time' => "Siang Ba'da Dzuhur (13:00 - 15:00 WIB)",
+        ]);
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('orders', [
+            'id' => $order2->id,
+            'technician_id' => $tech->id,
+            'status' => Order::STATUS_DIJADWALKAN,
+            'service_time' => "Siang Ba'da Dzuhur (13:00 - 15:00 WIB)",
+        ]);
+    }
+
+    /**
+     * Test API endpoint ketersediaan jadwal teknisi mengembalikan data jadwal akurat.
+     */
+    public function test_admin_can_check_technician_schedule_via_api(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $tech = User::factory()->create(['role' => User::ROLE_TECHNICIAN, 'name' => 'Budi Teknisi']);
+        $targetDate = now()->addDays(3)->toDateString();
+
+        $order = Order::factory()->create([
+            'status' => Order::STATUS_DIJADWALKAN,
+            'technician_id' => $tech->id,
+            'service_date' => $targetDate,
+            'service_time' => 'Pagi (08:30 - 11:30 WIB)',
+        ]);
+
+        $response = $this->actingAs($admin)->getJson('/admin/api/technician-schedule?date=' . $targetDate);
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'date',
+            'technicians' => [
+                '*' => ['id', 'name', 'phone', 'task_count', 'tasks'],
+            ],
+        ]);
+
+        $data = $response->json();
+        $techData = collect($data['technicians'])->firstWhere('id', $tech->id);
+        $this->assertNotNull($techData);
+        $this->assertEquals(1, $techData['task_count']);
+        $this->assertEquals('Pagi (08:30 - 11:30 WIB)', $techData['tasks'][0]['service_time']);
+    }
+
+    /**
      * Test admin dapat memverifikasi pembayaran dan menandai pesanan selesai.
      */
     public function test_admin_can_verify_payment_and_complete_order(): void
@@ -63,6 +178,8 @@ class AdminTest extends TestCase
 
         $order = Order::factory()->create([
             'status' => Order::STATUS_MENUNGGU_BAYAR,
+            'payment_method' => 'transfer',
+            'payment_proof' => 'payment_proofs/transfer_bukti.jpg',
             'base_amount' => 150000,
             'additional_amount' => 50000,
         ]);
@@ -80,6 +197,34 @@ class AdminTest extends TestCase
         ]);
 
         $this->assertNotNull($order->fresh()->paid_at);
+    }
+
+    /**
+     * Test admin dashboard menampilkan foto bukti pembayaran yang diunggah teknisi pada tab verifikasi bukti.
+     */
+    public function test_admin_dashboard_displays_payment_proof(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+
+        $orderVerifikasi = Order::factory()->create([
+            'status' => Order::STATUS_MENUNGGU_VERIFIKASI,
+            'payment_method' => 'transfer',
+            'payment_proof' => 'payment_proofs/bukti_dkm.jpg',
+        ]);
+
+        $orderPekerjaanSelesai = Order::factory()->create([
+            'status' => Order::STATUS_PEKERJAAN_SELESAI,
+            'payment_proof' => null,
+        ]);
+
+        $response = $this->actingAs($admin)->get('/admin?tab=verifikasi_bukti');
+
+        $response->assertStatus(200);
+        $response->assertSee('Bukti Transfer Tersedia');
+        $response->assertSee('Bukti Siap Diverifikasi');
+        $response->assertSee('Verifikasi Bukti');
+        $response->assertSee('Nunggu Bukti Teknisi');
+        $response->assertSee('Menunggu Teknisi');
     }
 
     /**

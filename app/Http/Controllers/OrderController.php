@@ -18,11 +18,15 @@ class OrderController extends Controller
      */
     public function create(): View
     {
-        $masjids = Masjid::select('id', 'name', 'address', 'pic_name', 'pic_phone')
+        $masjids = Masjid::with('acUnits')
+            ->select('id', 'name', 'address', 'pic_name', 'pic_phone')
             ->orderBy('name')
             ->get();
 
-        return view('order.create', compact('masjids'));
+        $pkOptions = \App\Services\AcPricingService::getPkOptions();
+        $pricingCategories = \App\Services\AcPricingService::getCategories();
+
+        return view('order.create', compact('masjids', 'pkOptions', 'pricingCategories'));
     }
 
     /**
@@ -36,7 +40,8 @@ class OrderController extends Controller
             return response()->json([]);
         }
 
-        $results = Masjid::where('name', 'like', "%{$query}%")
+        $results = Masjid::with('acUnits')
+            ->where('name', 'like', "%{$query}%")
             ->orWhere('address', 'like', "%{$query}%")
             ->limit(10)
             ->get(['id', 'name', 'address', 'pic_name', 'pic_phone']);
@@ -76,8 +81,14 @@ class OrderController extends Controller
             'address' => ['required', 'string', 'max:500'],
             'pic_name' => ['required', 'string', 'max:150'],
             'pic_phone' => ['required', 'string', 'regex:/^(08|628|\+628)[0-9]{8,12}$/'],
-            'dkm_complaint' => ['required', 'string'],
-            'ac_count' => ['required', 'integer', 'min:1', 'max:100'],
+            'dkm_complaint' => ['nullable', 'string'],
+            'ac_count' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'service_items' => ['nullable', 'array', 'min:1'],
+            'service_items.*.ac_type' => ['nullable', 'string', 'max:50'],
+            'service_items.*.service_category' => ['nullable', 'string', 'max:100'],
+            'service_items.*.room_name' => ['nullable', 'string', 'max:100'],
+            'service_items.*.ac_unit_id' => ['nullable', 'integer', 'exists:ac_units,id'],
+            'service_items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:999'],
             'service_date' => ['nullable', 'date'],
             'service_time' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -85,8 +96,6 @@ class OrderController extends Controller
             'pic_phone.regex' => 'Format nomor WhatsApp tidak valid. Gunakan format contoh: 081234567890.',
             'pic_name.required' => 'Nama pengurus / kontak wajib diisi.',
             'address.required' => 'Alamat masjid wajib diisi.',
-            'ac_count.min' => 'Jumlah unit AC minimal 1 unit.',
-            'dkm_complaint.required' => 'Pilih salah satu keluhan AC.',
         ]);
 
         // Standarisasi nomor HP ke awalan 08
@@ -114,13 +123,63 @@ class OrderController extends Controller
             ]);
         }
 
-        // 5. Hitung Estimasi Biaya Awal (Base Amount)
-        $ratePerUnit = match ($validated['dkm_complaint']) {
-            'Tidak Dingin / Bocor Air' => 85000,
-            'Mati Total / Rusak' => 100000,
-            default => 75000, // Cuci Rutin
-        };
-        $baseAmount = $ratePerUnit * (int) $validated['ac_count'];
+        // 5. Hitung Estimasi Biaya Awal & Rincian Multi-Item
+        $rawServiceItems = $request->input('service_items');
+        $serviceItems = [];
+        $totalAcCount = 0;
+        $baseAmount = 0.0;
+        $complaintSummaries = [];
+
+        if (is_array($rawServiceItems) && count($rawServiceItems) > 0) {
+            foreach ($rawServiceItems as $item) {
+                $qty = max(1, (int) ($item['quantity'] ?? 1));
+                $acType = ! empty($item['ac_type']) ? trim((string) $item['ac_type']) : '1 PK';
+                $serviceCategory = ! empty($item['service_category']) ? trim((string) $item['service_category']) : 'Cuci Rutin';
+                $roomName = ! empty($item['room_name']) ? trim((string) $item['room_name']) : null;
+                $acUnitId = ! empty($item['ac_unit_id']) ? (int) $item['ac_unit_id'] : null;
+
+                $ratePerUnit = \App\Services\AcPricingService::getRate($serviceCategory, $acType);
+                $subtotal = $ratePerUnit * $qty;
+
+                $totalAcCount += $qty;
+                $baseAmount += $subtotal;
+
+                $roomText = $roomName ? " [{$roomName}]" : '';
+                $complaintSummaries[] = "{$qty}x {$acType} ({$serviceCategory}{$roomText})";
+
+                $serviceItems[] = [
+                    'ac_unit_id' => $acUnitId,
+                    'room_name' => $roomName,
+                    'ac_type' => $acType,
+                    'service_category' => $serviceCategory,
+                    'quantity' => $qty,
+                    'price_per_unit' => $ratePerUnit,
+                    'subtotal' => $subtotal,
+                ];
+            }
+
+            $dkmComplaint = implode(', ', $complaintSummaries);
+        } else {
+            // Fallback backward-compatible mode untuk single complaint & ac_count
+            $dkmComplaint = ! empty($validated['dkm_complaint']) ? $validated['dkm_complaint'] : 'Cuci Rutin';
+            $totalAcCount = max(1, (int) ($validated['ac_count'] ?? 1));
+            $ratePerUnit = match ($dkmComplaint) {
+                'Tidak Dingin / Bocor Air', 'Kurang Dingin / Bocor Air' => 85000.0,
+                'Mati Total / Rusak' => 100000.0,
+                default => 75000.0, // Cuci Rutin
+            };
+            $baseAmount = $ratePerUnit * $totalAcCount;
+
+            $serviceItems[] = [
+                'ac_unit_id' => null,
+                'room_name' => null,
+                'ac_type' => '1 PK - 2 PK',
+                'service_category' => $dkmComplaint,
+                'quantity' => $totalAcCount,
+                'price_per_unit' => $ratePerUnit,
+                'subtotal' => $baseAmount,
+            ];
+        }
 
         // 6. Generate Nomor Pesanan Unik: SO-YYYYMMDD-XXX
         $todayPrefix = 'SO-' . now()->format('Ymd') . '-';
@@ -135,12 +194,17 @@ class OrderController extends Controller
             'status' => Order::STATUS_PESANAN_BARU,
             'service_date' => $validated['service_date'] ?? now()->addDay()->toDateString(),
             'service_time' => $validated['service_time'] ?? 'Pagi (09:00 WIB)',
-            'ac_count' => (int) $validated['ac_count'],
+            'ac_count' => $totalAcCount,
             'base_amount' => $baseAmount,
             'additional_amount' => 0,
             'additional_notes' => $validated['notes'] ?? null,
-            'dkm_complaint' => $validated['dkm_complaint'],
+            'dkm_complaint' => $dkmComplaint,
         ]);
+
+        // Simpan setiap item rincian servis
+        foreach ($serviceItems as $sItem) {
+            $order->serviceItems()->create($sItem);
+        }
 
         // Catat hit rate limiter (berlaku 1 jam = 3600 detik)
         RateLimiter::hit($rateLimitKey, 3600);
@@ -186,7 +250,7 @@ class OrderController extends Controller
      */
     public function status(string $order_number): View
     {
-        $order = Order::with(['masjid', 'technician', 'photos', 'spareparts'])
+        $order = Order::with(['masjid', 'technician', 'photos', 'spareparts', 'serviceItems'])
             ->where('order_number', $order_number)
             ->firstOrFail();
 
@@ -225,7 +289,7 @@ class OrderController extends Controller
      */
     public function publicReceipt(string $order_number): View
     {
-        $order = Order::with(['masjid', 'technician', 'photos', 'spareparts'])
+        $order = Order::with(['masjid', 'technician', 'photos', 'spareparts', 'serviceItems'])
             ->where('order_number', $order_number)
             ->firstOrFail();
 

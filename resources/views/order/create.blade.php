@@ -6,25 +6,111 @@
         isNewMasjid: '0',
         selectedMasjidId: '{{ old('masjid_id', '') }}',
         masjids: {{ Js::from($masjids) }},
+        selectedMasjidUnits: [],
         masjidQuery: '',
         filteredMasjids: [],
         showDropdown: false,
         address: '{{ old('address', '') }}',
         picName: '{{ old('pic_name', '') }}',
         picPhone: '{{ old('pic_phone', '') }}',
-        complaint: '{{ old('dkm_complaint', 'Cuci Rutin') }}',
-        acCount: {{ old('ac_count', 1) }},
-        rates: {
-            'Cuci Rutin': 75000,
-            'Tidak Dingin / Bocor Air': 85000,
-            'Mati Total / Rusak': 100000
+
+        // Multi-Item Service Rows (Mendukung lebih dari 1 jenis PK & kategori servis)
+        serviceRows: [
+            {
+                room_name: '',
+                ac_type: '1 PK',
+                service_category: 'Cuci Rutin',
+                quantity: 1,
+                ac_unit_id: null,
+            }
+        ],
+
+        ratesMatrix: {
+            'Cuci Rutin': {
+                '0.5 PK': 65000,
+                '0.75 PK': 65000,
+                '1 PK': 65000,
+                '1.5 PK': 75000,
+                '2 PK': 75000,
+                '2.5 PK': 90000,
+                '3 PK': 90000,
+                '5 PK': 130000,
+            },
+            'Kurang Dingin / Bocor Air': {
+                '0.5 PK': 80000,
+                '0.75 PK': 80000,
+                '1 PK': 80000,
+                '1.5 PK': 90000,
+                '2 PK': 90000,
+                '2.5 PK': 110000,
+                '3 PK': 110000,
+                '5 PK': 160000,
+            },
+            'Mati Total / Rusak': {
+                '0.5 PK': 100000,
+                '0.75 PK': 100000,
+                '1 PK': 100000,
+                '1.5 PK': 120000,
+                '2 PK': 120000,
+                '2.5 PK': 140000,
+                '3 PK': 140000,
+                '5 PK': 200000,
+            }
         },
-        get currentRate() {
-            return this.rates[this.complaint] || 75000;
+
+        getRowRate(row) {
+            let cat = row.service_category || 'Cuci Rutin';
+            let catRates = this.ratesMatrix[cat] || this.ratesMatrix['Cuci Rutin'];
+            let pk = row.ac_type || '1 PK';
+            return catRates[pk] || 75000;
         },
-        get estimatedTotal() {
-            return this.currentRate * this.acCount;
+
+        getRowSubtotal(row) {
+            return (parseInt(row.quantity) || 1) * this.getRowRate(row);
         },
+
+        get totalUnits() {
+            return this.serviceRows.reduce((sum, r) => sum + (parseInt(r.quantity) || 1), 0);
+        },
+
+        get totalEstimatedAmount() {
+            return this.serviceRows.reduce((sum, r) => sum + this.getRowSubtotal(r), 0);
+        },
+
+        get complaintSummary() {
+            return this.serviceRows.map(r => {
+                let room = r.room_name ? ` [${r.room_name}]` : '';
+                return `${r.quantity}x ${r.ac_type} (${r.service_category}${room})`;
+            }).join(', ');
+        },
+
+        addRow() {
+            this.serviceRows.push({
+                room_name: '',
+                ac_type: '1 PK',
+                service_category: 'Cuci Rutin',
+                quantity: 1,
+                ac_unit_id: null,
+            });
+        },
+
+        removeRow(index) {
+            if (this.serviceRows.length > 1) {
+                this.serviceRows.splice(index, 1);
+            }
+        },
+
+        importRegisteredUnits() {
+            if (!this.selectedMasjidUnits || this.selectedMasjidUnits.length === 0) return;
+            this.serviceRows = this.selectedMasjidUnits.map(unit => ({
+                room_name: unit.room_name || '',
+                ac_type: unit.ac_type || '1 PK',
+                service_category: 'Cuci Rutin',
+                quantity: parseInt(unit.quantity) || 1,
+                ac_unit_id: unit.id,
+            }));
+        },
+
         formatRupiah(num) {
             return new Intl.NumberFormat('id-ID').format(num);
         },
@@ -34,6 +120,7 @@
             this.address = item.address;
             this.picName = item.pic_name;
             this.picPhone = item.pic_phone;
+            this.selectedMasjidUnits = item.ac_units || [];
             this.showDropdown = false;
         },
         searchMasjid() {
@@ -121,7 +208,7 @@
             Cari Masjid Terdaftar
         </button>
         <button type="button" 
-                @click="isNewMasjid = '1'; selectedMasjidId = ''; masjidQuery = '';" 
+                @click="isNewMasjid = '1'; selectedMasjidId = ''; masjidQuery = ''; selectedMasjidUnits = [];" 
                 :class="isNewMasjid === '1' ? 'bg-[#1E3E34] text-white shadow-sm font-semibold' : 'text-gray-700 hover:text-gray-900'"
                 class="min-h-[44px] py-2.5 px-3 rounded-lg transition-all cursor-pointer text-center flex items-center justify-center">
             + Daftarkan Masjid Baru
@@ -212,6 +299,47 @@
                         <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
                     @enderror
                 </div>
+
+                <!-- Tampilan Unit AC Terdaftar (Jika Masjid Sudah Pernah Servis / Sudah Diisi di Kelola Unit AC) -->
+                <div x-show="isNewMasjid === '0' && selectedMasjidId" x-cloak class="space-y-2 pt-2">
+                    <template x-if="selectedMasjidUnits.length > 0">
+                        <div class="p-4 rounded-xl bg-[#EBF2EE] border border-[#1E3E34]/20 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-[#1E3E34]"></span>
+                                    <span class="text-xs font-bold text-[#1E3E34] uppercase tracking-wider">
+                                        Data Unit AC Terdaftar di Masjid Ini:
+                                    </span>
+                                </div>
+                                <span class="px-2.5 py-1 rounded text-[11px] font-bold bg-[#1E3E34] text-white" 
+                                      x-text="selectedMasjidUnits.reduce((acc, u) => acc + (parseInt(u.quantity) || 1), 0) + ' Unit'"></span>
+                            </div>
+
+                            <div class="divide-y divide-gray-200/70 bg-white rounded-lg border border-gray-200 overflow-hidden text-xs">
+                                <template x-for="unit in selectedMasjidUnits" :key="unit.id">
+                                    <div class="p-3 flex items-center justify-between hover:bg-gray-50/80">
+                                        <div>
+                                            <strong class="text-gray-900 block" x-text="unit.room_name"></strong>
+                                            <span class="text-gray-500 text-[11px]" x-text="(unit.brand ? unit.brand + ' &bull; ' : '') + unit.ac_type"></span>
+                                        </div>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-800 font-bold text-[11px]"
+                                              x-text="(unit.quantity || 1) + ' Unit'"></span>
+                                    </div>
+                                </template>
+                            </div>
+                            <p class="text-[11px] text-[#1E3E34] leading-relaxed">
+                                Catatan: Data unit di atas merupakan catatan inventaris AC dari servis sebelumnya atau kelola unit AC.
+                            </p>
+                        </div>
+                    </template>
+
+                    <template x-if="selectedMasjidUnits.length === 0">
+                        <div class="p-3.5 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-600">
+                            <span class="font-medium text-gray-800 block">Belum ada inventaris unit AC terdata untuk masjid ini.</span>
+                            <span class="text-gray-500 text-[11px] block mt-0.5">Teknisi kami akan mendata dan mencatat spesifikasi PK unit AC saat melakukan servis di lokasi.</span>
+                        </div>
+                    </template>
+                </div>
             </div>
 
             <!-- BAGIAN 2: KONTAK PENGURUS -->
@@ -255,87 +383,144 @@
                 </div>
             </div>
 
-            <!-- BAGIAN 3: KELUHAN & JUMLAH AC -->
+            <!-- BAGIAN 3: RINCIAN AC & KATEGORI LAYANAN SERVIS -->
             <div class="space-y-4 pt-2">
-                <h2 class="text-base font-semibold text-gray-900 pb-2 border-b border-gray-100">
-                    3. Kategori Layanan & Jumlah Unit
-                </h2>
-
-                <input type="hidden" name="dkm_complaint" :value="complaint">
-                <input type="hidden" name="ac_count" :value="acCount">
-
-                <!-- Card Radio Selector Bersih (Tanpa Emoji) -->
-                <div class="space-y-2">
-                    <label class="block text-sm font-medium text-gray-900">
-                        Pilih Kategori Servis:
-                    </label>
-                    <div class="grid grid-cols-1 gap-2.5">
-                        
-                        <!-- Pilihan 1: Cuci Rutin -->
-                        <div @click="complaint = 'Cuci Rutin'" 
-                             :class="complaint === 'Cuci Rutin' ? 'border-[#1E3E34] bg-[#EBF2EE] ring-1 ring-[#1E3E34]' : 'border-gray-200 bg-white hover:border-gray-300'"
-                             class="p-4 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between">
-                            <div>
-                                <span class="block text-base font-semibold text-gray-900">Cuci Rutin</span>
-                                <span class="block text-xs text-gray-600 mt-0.5">Pembersihan filter, evaporator, dan blower</span>
-                            </div>
-                            <span class="text-sm font-bold text-[#1E3E34]">Rp 75.000 / unit</span>
-                        </div>
-
-                        <!-- Pilihan 2: Kurang Dingin / Bocor -->
-                        <div @click="complaint = 'Tidak Dingin / Bocor Air'" 
-                             :class="complaint === 'Tidak Dingin / Bocor Air' ? 'border-[#1E3E34] bg-[#EBF2EE] ring-1 ring-[#1E3E34]' : 'border-gray-200 bg-white hover:border-gray-300'"
-                             class="p-4 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between">
-                            <div>
-                                <span class="block text-base font-semibold text-gray-900">Kurang Dingin / Bocor Air</span>
-                                <span class="block text-xs text-gray-600 mt-0.5">Pengecekan saluran pembuangan dan tekanan gas</span>
-                            </div>
-                            <span class="text-sm font-bold text-[#1E3E34]">Rp 85.000 / unit</span>
-                        </div>
-
-                        <!-- Pilihan 3: Mati Total / Rusak -->
-                        <div @click="complaint = 'Mati Total / Rusak'" 
-                             :class="complaint === 'Mati Total / Rusak' ? 'border-[#1E3E34] bg-[#EBF2EE] ring-1 ring-[#1E3E34]' : 'border-gray-200 bg-white hover:border-gray-300'"
-                             class="p-4 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between">
-                            <div>
-                                <span class="block text-base font-semibold text-gray-900">Mati Total / Rusak</span>
-                                <span class="block text-xs text-gray-600 mt-0.5">Pemeriksaan komponen modul dan kelistrikan</span>
-                            </div>
-                            <span class="text-sm font-bold text-[#1E3E34]">Rp 100.000 (Cek)</span>
-                        </div>
-
-                    </div>
-                </div>
-
-                <!-- Counter Jumlah AC Ramah Jempol -->
-                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center justify-between gap-4">
+                <div class="pb-2 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                        <span class="block text-sm font-semibold text-gray-900">Jumlah Unit AC</span>
-                        <span class="block text-xs text-gray-500">Tekan tombol untuk mengubah</span>
+                        <h2 class="text-base font-semibold text-gray-900">
+                            3. Rincian AC & Kategori Layanan Servis
+                        </h2>
+                        <p class="text-xs text-gray-500">
+                            Bisa memilih lebih dari 1 jenis AC dan kategori servis dalam satu pesanan.
+                        </p>
                     </div>
 
-                    <div class="flex items-center gap-2">
+                    <!-- Shortcut: Tombol Impor AC Terdaftar jika ada -->
+                    <template x-if="isNewMasjid === '0' && selectedMasjidUnits.length > 0">
                         <button type="button" 
-                                @click="decrement()"
-                                :disabled="acCount <= 1"
-                                class="w-11 h-11 rounded-lg bg-white border border-gray-300 text-gray-800 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-xl flex items-center justify-center cursor-pointer">
-                            &minus;
+                                @click="importRegisteredUnits()"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1E3E34] bg-[#EBF2EE] text-[#1E3E34] text-xs font-semibold hover:bg-[#1E3E34] hover:text-white transition-colors cursor-pointer self-start sm:self-auto">
+                            <span>Gunakan Data AC Terdaftar &rarr;</span>
                         </button>
-
-                        <div class="w-14 h-11 bg-white border border-gray-300 rounded-lg flex items-center justify-center font-bold text-base text-gray-900">
-                            <span x-text="acCount"></span>
-                        </div>
-
-                        <button type="button" 
-                                @click="increment()"
-                                class="w-11 h-11 rounded-lg bg-[#1E3E34] text-white hover:bg-[#142B24] font-bold text-xl flex items-center justify-center cursor-pointer">
-                            +
-                        </button>
-                    </div>
+                    </template>
                 </div>
+
+                <!-- Fallback Hidden Inputs untuk Kompatibilitas Sistem -->
+                <input type="hidden" name="dkm_complaint" :value="complaintSummary">
+                <input type="hidden" name="ac_count" :value="totalUnits">
+
+                <!-- DAFTAR BARIS ITEM AC (DYNAMIC ROWS) -->
+                <div class="space-y-3">
+                    <template x-for="(row, index) in serviceRows" :key="index">
+                        <div class="p-4 rounded-xl border border-gray-200 bg-gray-50/70 space-y-3 text-xs relative">
+                            <!-- Hidden inputs array untuk dikirim ke backend -->
+                            <input type="hidden" :name="'service_items[' + index + '][ac_type]'" :value="row.ac_type">
+                            <input type="hidden" :name="'service_items[' + index + '][service_category]'" :value="row.service_category">
+                            <input type="hidden" :name="'service_items[' + index + '][room_name]'" :value="row.room_name">
+                            <input type="hidden" :name="'service_items[' + index + '][quantity]'" :value="row.quantity">
+                            <input type="hidden" :name="'service_items[' + index + '][ac_unit_id]'" :value="row.ac_unit_id || ''">
+
+                            <!-- Header Baris: Nomor Item & Tombol Hapus -->
+                            <div class="flex items-center justify-between pb-2 border-b border-gray-200">
+                                <span class="font-bold text-gray-800 uppercase tracking-wider text-[11px]" x-text="'Item AC #' + (index + 1)"></span>
+                                <button type="button" 
+                                        x-show="serviceRows.length > 1"
+                                        @click="removeRow(index)"
+                                        class="text-red-600 hover:text-red-800 font-semibold cursor-pointer text-xs">
+                                    &times; Hapus Baris
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <!-- Pilih Kapasitas / PK -->
+                                <div class="space-y-1">
+                                    <label class="block font-semibold text-gray-800">
+                                        Kapasitas / PK AC: <span class="text-red-500">*</span>
+                                    </label>
+                                    <select x-model="row.ac_type" 
+                                            class="w-full min-h-[42px] px-3.5 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 font-medium outline-none focus:border-[#1E3E34]">
+                                        <option value="0.5 PK">0.5 PK (1/2 PK)</option>
+                                        <option value="0.75 PK">0.75 PK (3/4 PK)</option>
+                                        <option value="1 PK">1 PK</option>
+                                        <option value="1.5 PK">1.5 PK</option>
+                                        <option value="2 PK">2 PK</option>
+                                        <option value="2.5 PK">2.5 PK</option>
+                                        <option value="3 PK">3 PK</option>
+                                        <option value="5 PK">5 PK (Standing / Cassette)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Pilih Kategori Servis -->
+                                <div class="space-y-1">
+                                    <label class="block font-semibold text-gray-800">
+                                        Kategori / Jenis Keluhan: <span class="text-red-500">*</span>
+                                    </label>
+                                    <select x-model="row.service_category" 
+                                            class="w-full min-h-[42px] px-3.5 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 font-medium outline-none focus:border-[#1E3E34]">
+                                        <option value="Cuci Rutin">Cuci Rutin / Pembersihan</option>
+                                        <option value="Kurang Dingin / Bocor Air">Kurang Dingin / Bocor Air</option>
+                                        <option value="Mati Total / Rusak">Mati Total / Rusak Berat</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                <!-- Nama Ruang / Penempatan (Opsional) -->
+                                <div class="space-y-1">
+                                    <label class="block font-semibold text-gray-700">
+                                        Lokasi / Ruang AC: <span class="text-gray-400 font-normal">(opsional)</span>
+                                    </label>
+                                    <input type="text" 
+                                           x-model="row.room_name" 
+                                           placeholder="Contoh: Shaf Depan, Lantai 2" 
+                                           class="w-full min-h-[42px] px-3.5 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 outline-none focus:border-[#1E3E34]">
+                                </div>
+
+                                <!-- Jumlah Unit (Quantity) Counter -->
+                                <div class="space-y-1">
+                                    <label class="block font-semibold text-gray-800">
+                                        Jumlah Unit: <span class="text-red-500">*</span>
+                                    </label>
+                                    <div class="flex items-center gap-1.5">
+                                        <button type="button" 
+                                                @click="if (row.quantity > 1) row.quantity--" 
+                                                class="w-10 h-10 rounded-lg bg-white border border-gray-300 text-gray-800 hover:bg-gray-100 font-bold text-lg flex items-center justify-center cursor-pointer">
+                                            &minus;
+                                        </button>
+                                        <input type="number" 
+                                               x-model.number="row.quantity" 
+                                               min="1" 
+                                               max="100" 
+                                               class="w-16 h-10 text-center rounded-lg border border-gray-300 bg-white font-bold text-sm text-gray-900 outline-none focus:border-[#1E3E34]">
+                                        <button type="button" 
+                                                @click="if (row.quantity < 100) row.quantity++" 
+                                                class="w-10 h-10 rounded-lg bg-[#1E3E34] text-white hover:bg-[#142B24] font-bold text-lg flex items-center justify-center cursor-pointer">
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Baris Rincian Tarif Subtotal per Item -->
+                            <div class="pt-2 border-t border-gray-200 flex items-center justify-between text-xs">
+                                <span class="text-gray-600">
+                                    Tarif: <strong class="text-gray-900" x-text="'Rp ' + formatRupiah(getRowRate(row)) + ' / unit'"></strong>
+                                </span>
+                                <span class="font-bold text-[#1E3E34]" x-text="'Subtotal: Rp ' + formatRupiah(getRowSubtotal(row))"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Tombol Tambah Baris AC Lain -->
+                <button type="button" 
+                        @click="addRow()"
+                        class="w-full min-h-[44px] py-2.5 px-4 rounded-xl border-2 border-dashed border-[#1E3E34]/40 bg-[#EBF2EE]/60 hover:bg-[#EBF2EE] text-[#1E3E34] font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                    <span>+ Tambah Jenis AC / Kategori Servis Lain</span>
+                </button>
 
                 <!-- Jadwal Kedatangan Pilihan -->
-                <div class="space-y-3">
+                <div class="space-y-3 pt-2">
                     <div class="space-y-1.5">
                         <label for="service_date" class="block text-sm font-medium text-gray-900">
                             Rencana Hari Servis (Opsional)
@@ -377,18 +562,22 @@
             </div>
 
             <!-- KOTAK ESTIMASI BIAYA SOLID -->
-            <div class="bg-[#EBF2EE] border border-[#1E3E34]/20 rounded-lg p-4">
+            <div class="bg-[#EBF2EE] border border-[#1E3E34]/20 rounded-xl p-4 sm:p-5 space-y-2">
                 <div class="flex items-center justify-between">
                     <div>
                         <span class="block text-xs uppercase tracking-wider text-gray-600 font-semibold">Perkiraan Biaya Awal</span>
                         <div class="text-xl sm:text-2xl font-bold text-[#1E3E34] mt-0.5">
-                            Rp <span x-text="formatRupiah(estimatedTotal)"></span>
+                            Rp <span x-text="formatRupiah(totalEstimatedAmount)"></span>
                         </div>
                     </div>
                     <div class="text-right text-xs text-gray-600">
-                        <span class="block font-semibold" x-text="acCount + ' Unit &bull; ' + complaint"></span>
+                        <span class="block font-bold text-gray-900" x-text="totalUnits + ' Unit AC Terpilih'"></span>
                         <span class="block text-[11px] text-gray-500">*Pelunasan setelah servis beres</span>
                     </div>
+                </div>
+                <div class="pt-2 border-t border-[#1E3E34]/15 text-xs text-gray-600 flex items-start gap-1.5">
+                    <span class="font-semibold text-gray-800 shrink-0">Rincian:</span>
+                    <span class="text-[11px] leading-relaxed" x-text="complaintSummary"></span>
                 </div>
             </div>
 
