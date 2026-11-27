@@ -1,226 +1,405 @@
 @extends('layouts.app', ['title' => 'Meja Operasional Admin - Servis AC Masjid'])
 
 @section('content')
-<div class="space-y-6" x-data="{
-    showAssignModal: false,
-    showPayModal: false,
-    showPhotosModal: false,
-    selectedOrder: null,
-    activePhotos: [],
-    activeOrderNumber: '',
-    assignDate: '',
-    assignTime: 'Pagi (08:30 - 11:30 WIB)',
-    assignTechId: '',
-    techSchedules: [],
-    loadingSchedules: false,
+<div class="space-y-6"
+     x-data="{
+        showAssignModal: false,
+        showPayModal: false,
+        showPhotosModal: false,
+        selectedOrder: null,
+        activePhotos: [],
+        activeOrderNumber: '',
+        assignDate: '',
+        assignTime: 'Pagi (08:30 - 11:30 WIB)',
+        assignTechId: '',
+        originalOrderTime: '',
+        isFlexibleOrderTime: false,
+        officialSessions: [
+            'Pagi (08:30 - 11:30 WIB)',
+            'Siang Ba\'da Dzuhur (13:00 - 15:00 WIB)',
+            'Sore Ba\'da Ashar (16:00 - 17:30 WIB)'
+        ],
+        techSchedules: [],
+        loadingSchedules: false,
 
-    async openAssign(order) {
-        this.selectedOrder = order;
-        this.assignDate = order.service_date ? order.service_date.split('T')[0] : '{{ now()->toDateString() }}';
-        this.assignTime = order.service_time || 'Pagi (08:30 - 11:30 WIB)';
-        this.assignTechId = order.technician_id || '';
-        this.showAssignModal = true;
-        await this.checkTechSchedules();
-    },
+        async openAssign(order) {
+            this.selectedOrder = order;
+            this.assignDate = order.service_date ? order.service_date.split('T')[0] : '{{ now()->toDateString() }}';
+            this.originalOrderTime = order.service_time || '';
+            const isOfficial = this.officialSessions.includes(this.originalOrderTime);
+            this.isFlexibleOrderTime = !isOfficial && this.originalOrderTime !== '';
+            this.assignTime = isOfficial ? this.originalOrderTime : 'Pagi (08:30 - 11:30 WIB)';
+            this.assignTechId = order.technician_id ? String(order.technician_id) : '';
+            this.showAssignModal = true;
+            await this.checkTechSchedules();
+        },
 
-    async checkTechSchedules() {
-        if (!this.assignDate) return;
-        this.loadingSchedules = true;
-        try {
-            const excludeId = this.selectedOrder ? this.selectedOrder.id : 0;
-            const res = await fetch(`/admin/api/technician-schedule?date=${this.assignDate}&exclude_order_id=${excludeId}`);
-            if (res.ok) {
-                const data = await res.json();
-                this.techSchedules = data.technicians || [];
+        async checkTechSchedules() {
+            if (!this.assignDate) return;
+            this.loadingSchedules = true;
+            try {
+                const excludeId = this.selectedOrder ? this.selectedOrder.id : 0;
+                const res = await fetch(`/admin/api/technician-schedule?date=${this.assignDate}&exclude_order_id=${excludeId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    this.techSchedules = data.technicians || [];
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.loadingSchedules = false;
             }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            this.loadingSchedules = false;
+        },
+
+        get selectedTechConflict() {
+            if (!this.assignTechId || !this.assignTime) return null;
+            const tech = this.techSchedules.find(t => t.id == this.assignTechId);
+            if (!tech || !tech.tasks) return null;
+            return tech.tasks.find(task => task.service_time === this.assignTime);
+        },
+
+        get selectedTechOtherTasks() {
+            if (!this.assignTechId || !this.assignTime) return [];
+            const tech = this.techSchedules.find(t => t.id == this.assignTechId);
+            if (!tech || !tech.tasks) return [];
+            return tech.tasks.filter(task => task.service_time !== this.assignTime);
+        },
+
+        getTechOptionLabel(tech) {
+            const schedule = this.techSchedules.find(t => t.id == tech.id);
+            if (!schedule) return tech.name + ' (' + tech.phone + ')';
+            if (schedule.task_count === 0) {
+                return tech.name + ' - Tersedia (0 Tugas)';
+            }
+            const hasSlotConflict = schedule.tasks.some(task => task.service_time === this.assignTime);
+            if (hasSlotConflict) {
+                return tech.name + ' - [BENTROK di Sesi Ini] (' + schedule.task_count + ' tugas)';
+            }
+            return tech.name + ' - ' + schedule.task_count + ' tugas (Sesi ini kosong)';
+        },
+
+        openPay(order) {
+            if (!order.payment_method) {
+                order.payment_method = 'transfer';
+            }
+            this.selectedOrder = order;
+            this.showPayModal = true;
+        },
+
+        openPhotos(photos, orderNumber) {
+            this.activePhotos = photos;
+            this.activeOrderNumber = orderNumber;
+            this.showPhotosModal = true;
         }
-    },
+     }"
+     @keydown.escape.window="showAssignModal = false; showPayModal = false; showPhotosModal = false">
 
-    get selectedTechConflict() {
-        if (!this.assignTechId || !this.assignTime) return null;
-        const tech = this.techSchedules.find(t => t.id == this.assignTechId);
-        if (!tech || !tech.tasks) return null;
-        return tech.tasks.find(task => task.service_time === this.assignTime);
-    },
-
-    get selectedTechOtherTasks() {
-        if (!this.assignTechId || !this.assignTime) return [];
-        const tech = this.techSchedules.find(t => t.id == this.assignTechId);
-        if (!tech || !tech.tasks) return [];
-        return tech.tasks.filter(task => task.service_time !== this.assignTime);
-    },
-
-    getTechOptionLabel(tech) {
-        const schedule = this.techSchedules.find(t => t.id == tech.id);
-        if (!schedule) return tech.name + ' (' + tech.phone + ')';
-        if (schedule.task_count === 0) {
-            return tech.name + ' - Tersedia (0 Tugas)';
-        }
-        const hasSlotConflict = schedule.tasks.some(task => task.service_time === this.assignTime);
-        if (hasSlotConflict) {
-            return tech.name + ' - [BENTROK di Sesi Ini] (' + schedule.task_count + ' tugas)';
-        }
-        return tech.name + ' - ' + schedule.task_count + ' tugas (Sesi ini kosong)';
-    },
-
-    openPay(order) {
-        if (!order.payment_method) {
-            order.payment_method = 'transfer';
-        }
-        this.selectedOrder = order;
-        this.showPayModal = true;
-    },
-    openPhotos(photos, orderNumber) {
-        this.activePhotos = photos;
-        this.activeOrderNumber = orderNumber;
-        this.showPhotosModal = true;
-    }
-}">
-
-    <!-- Header Meja Admin Bersih Sesuai Panduan Section 5.3 -->
-    <div class="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-            <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Meja Kerja Operasional Servis AC</h1>
-            <p class="text-xs sm:text-sm text-gray-500 mt-0.5">Penjadwalan teknisi, pemantauan pekerjaan di masjid, dan verifikasi pelunasan.</p>
+    <!-- Header Meja Kerja Admin -->
+    <section class="bg-surface rounded-2xl border border-primary-border p-5 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="space-y-1">
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-text-main tracking-tight">
+                Meja Kerja Operasional
+            </h1>
+            <p class="text-sm sm:text-base text-text-muted">
+                Penjadwalan teknisi, pemantauan servis di masjid, dan verifikasi bukti pembayaran.
+            </p>
         </div>
-        <div class="flex items-center gap-3 text-xs">
-            <span class="px-3 py-1.5 bg-[#EBF2EE] text-[#1E3E34] font-semibold rounded-md border border-[#1E3E34]/20">
+        <div class="flex flex-wrap items-center gap-3 text-sm">
+            <span class="px-3.5 py-2 bg-primary-subtle text-primary font-bold rounded-xl border border-primary-border">
                 {{ now()->translatedFormat('l, d F Y') }}
             </span>
-            <span class="text-gray-500 font-medium">Petugas: <strong>{{ Auth::user()->name }}</strong></span>
+            <span class="text-text-muted font-medium">
+                Petugas: <strong class="text-text-main">{{ Auth::user()->name }}</strong>
+            </span>
         </div>
+    </section>
+
+    <!-- 4 Tab Status Ramah Jempol (Grid 2x2 di HP, 4 Kolom di Desktop) -->
+    <nav aria-label="Filter Status Pesanan" class="bg-surface border border-primary-border rounded-2xl p-2 shadow-sm">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <!-- Tab 1: Pesanan Baru -->
+            <a href="{{ route('admin.dashboard', ['tab' => 'pesanan_baru']) }}"
+               class="min-h-[56px] px-3.5 py-3 rounded-xl flex items-center justify-between gap-2 transition-colors {{ $activeTab === 'pesanan_baru' ? 'bg-primary text-white font-bold shadow-sm' : 'bg-bg-main text-text-main hover:bg-primary-subtle font-semibold border border-primary-border/60' }}">
+                <span class="text-sm sm:text-base leading-snug">Pesanan Baru</span>
+                <span class="px-2.5 py-1 rounded-full text-sm font-extrabold shrink-0 {{ $activeTab === 'pesanan_baru' ? 'bg-white text-primary' : 'bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]' }}">
+                    {{ $counts['pesanan_baru'] }}
+                </span>
+            </a>
+
+            <!-- Tab 2: Sedang Berjalan -->
+            <a href="{{ route('admin.dashboard', ['tab' => 'berjalan']) }}"
+               class="min-h-[56px] px-3.5 py-3 rounded-xl flex items-center justify-between gap-2 transition-colors {{ $activeTab === 'berjalan' ? 'bg-primary text-white font-bold shadow-sm' : 'bg-bg-main text-text-main hover:bg-primary-subtle font-semibold border border-primary-border/60' }}">
+                <span class="text-sm sm:text-base leading-snug">Sedang Berjalan</span>
+                <span class="px-2.5 py-1 rounded-full text-sm font-extrabold shrink-0 {{ $activeTab === 'berjalan' ? 'bg-white text-primary' : 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]' }}">
+                    {{ $counts['berjalan'] }}
+                </span>
+            </a>
+
+            <!-- Tab 3: Verifikasi Bukti Foto -->
+            <a href="{{ route('admin.dashboard', ['tab' => 'verifikasi_bukti']) }}"
+               class="min-h-[56px] px-3.5 py-3 rounded-xl flex items-center justify-between gap-2 transition-colors {{ in_array($activeTab, ['verifikasi_bukti', 'menunggu_bayar']) ? 'bg-primary text-white font-bold shadow-sm' : 'bg-bg-main text-text-main hover:bg-primary-subtle font-semibold border border-primary-border/60' }}">
+                <span class="text-sm sm:text-base leading-snug">Verifikasi Bukti Foto</span>
+                <span class="px-2.5 py-1 rounded-full text-sm font-extrabold shrink-0 {{ in_array($activeTab, ['verifikasi_bukti', 'menunggu_bayar']) ? 'bg-white text-primary' : 'bg-[#FFEDD5] text-[#C2410C] border border-[#FDBA74]' }}">
+                    {{ $counts['verifikasi_bukti'] ?? ($counts['menunggu_bayar'] ?? 0) }}
+                </span>
+            </a>
+
+            <!-- Tab 4: Selesai & Lunas -->
+            <a href="{{ route('admin.dashboard', ['tab' => 'selesai']) }}"
+               class="min-h-[56px] px-3.5 py-3 rounded-xl flex items-center justify-between gap-2 transition-colors {{ $activeTab === 'selesai' ? 'bg-primary text-white font-bold shadow-sm' : 'bg-bg-main text-text-main hover:bg-primary-subtle font-semibold border border-primary-border/60' }}">
+                <span class="text-sm sm:text-base leading-snug">Selesai &amp; Lunas</span>
+                <span class="px-2.5 py-1 rounded-full text-sm font-extrabold shrink-0 {{ $activeTab === 'selesai' ? 'bg-white text-primary' : 'bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC]' }}">
+                    {{ $counts['selesai'] }}
+                </span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- ========================================================================= -->
+    <!-- TAMPILAN MOBILE (< lg): KARTU PESANAN RAMAH ORANG TUA                     -->
+    <!-- ========================================================================= -->
+    <div class="lg:hidden space-y-4">
+        @forelse($orders as $order)
+            <article class="bg-surface rounded-2xl border-2 border-primary-border p-5 shadow-sm space-y-4">
+                <!-- Baris Atas: Nomor Order & Status -->
+                <div class="flex flex-wrap items-start justify-between gap-2 pb-3 border-b border-primary-border/70">
+                    <div>
+                        <span class="block font-mono text-base font-extrabold text-primary">{{ $order->order_number }}</span>
+                        <span class="block text-sm text-text-muted mt-0.5">{{ $order->created_at->translatedFormat('d M Y, H:i') }} WIB</span>
+                    </div>
+                    <span class="inline-block px-3 py-1.5 rounded-lg text-sm font-bold
+                        {{ $order->status === 'pesanan_baru' ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]' : '' }}
+                        {{ in_array($order->status, ['dijadwalkan', 'dikerjakan']) ? 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]' : '' }}
+                        {{ $order->status === 'pekerjaan_selesai' ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]' : '' }}
+                        {{ $order->status === 'menunggu_verifikasi' ? 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]' : '' }}
+                        {{ $order->status === 'menunggu_bayar' ? 'bg-[#FFEDD5] text-[#C2410C] border border-[#FDBA74]' : '' }}
+                        {{ $order->status === 'selesai' ? 'bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC]' : '' }}
+                        {{ $order->status === 'batal' ? 'bg-[#FEE2E2] text-[#B91C1C] border border-[#FCA5A5]' : '' }}">
+                        @if($order->status === 'pekerjaan_selesai')
+                            Nunggu Bukti Teknisi
+                        @elseif($order->status === 'menunggu_verifikasi')
+                            Bukti Siap Diverifikasi
+                        @else
+                            {{ $order->statusLabel() }}
+                        @endif
+                    </span>
+                </div>
+
+                <!-- Informasi Masjid -->
+                <div class="space-y-1">
+                    <h2 class="text-lg font-extrabold text-text-main leading-snug">{{ $order->masjid->name }}</h2>
+                    <p class="text-sm text-text-muted leading-relaxed">{{ $order->masjid->address }}</p>
+                    <p class="text-sm font-semibold text-text-main pt-0.5">
+                        {{ $order->masjid->pic_name }}
+                        <span class="font-mono text-primary ml-1">({{ $order->masjid->pic_phone }})</span>
+                    </p>
+                </div>
+
+                <!-- Layanan, Jadwal & Teknisi -->
+                <div class="p-3.5 rounded-xl bg-bg-main border border-primary-border/70 space-y-2 text-sm">
+                    <div>
+                        <span class="text-text-muted font-medium">Layanan ({{ $order->ac_count }} Unit AC):</span>
+                        <strong class="block text-text-main font-bold mt-0.5">{{ $order->dkm_complaint }}</strong>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-primary-border/60">
+                        <div>
+                            <span class="block text-text-muted">Jadwal Kunjungan:</span>
+                            <strong class="text-text-main font-semibold">
+                                {{ $order->service_date ? $order->service_date->translatedFormat('d M Y') : '-' }}
+                                &bull; {{ $order->service_time ?? '-' }}
+                            </strong>
+                        </div>
+                        <div>
+                            <span class="block text-text-muted">Teknisi Bertugas:</span>
+                            @if($order->technician)
+                                <strong class="text-text-main font-bold">{{ $order->technician->name }}</strong>
+                                <span class="block font-mono text-text-muted">{{ $order->technician->phone }}</span>
+                            @else
+                                <strong class="text-[#92400E] font-bold">Belum ditugaskan</strong>
+                            @endif
+                        </div>
+                    </div>
+
+                    @if($order->additional_amount > 0)
+                        <div class="pt-2 border-t border-primary-border/60 text-[#92400E] font-semibold">
+                            + Sparepart: {{ $order->additional_notes }}
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Lampiran Foto / Bukti Transfer -->
+                @if($order->photos->isNotEmpty() || $order->payment_proof)
+                    <div class="flex flex-wrap gap-2">
+                        @if($order->photos->isNotEmpty())
+                            <button type="button"
+                                    @click="openPhotos({{ Js::from($order->photos) }}, '{{ $order->order_number }}')"
+                                    class="min-h-[44px] px-3.5 py-2 rounded-xl bg-bg-main hover:bg-primary-subtle border border-primary-border text-text-main font-bold text-sm cursor-pointer transition-colors">
+                                Lihat {{ $order->photos->count() }} Foto Bukti
+                            </button>
+                        @endif
+                        @if($order->payment_proof)
+                            <button type="button"
+                                    @click="openPay({{ Js::from($order) }})"
+                                    class="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#E0F2FE] hover:bg-[#BAE6FD]/60 border border-[#BAE6FD] text-[#0369A1] font-bold text-sm cursor-pointer transition-colors">
+                                Bukti Transfer Tersedia
+                            </button>
+                        @endif
+                    </div>
+                @endif
+
+                <!-- Total Biaya -->
+                <div class="p-3.5 rounded-xl bg-primary-subtle border border-primary-border flex items-center justify-between gap-2">
+                    <div>
+                        <span class="block text-sm font-semibold text-text-muted">Total Biaya</span>
+                        @if($order->additional_amount > 0)
+                            <span class="block text-sm text-text-muted">Dasar: Rp {{ number_format($order->base_amount, 0, ',', '.') }}</span>
+                        @endif
+                    </div>
+                    <span class="text-xl font-extrabold font-mono text-primary">
+                        Rp {{ number_format($order->grandTotal(), 0, ',', '.') }}
+                    </span>
+                </div>
+
+                <!-- Deretan Tombol Aksi Ramah Jempol -->
+                <div class="pt-1 flex flex-col sm:flex-row gap-2.5">
+                    @if($order->status === 'pesanan_baru')
+                        <button type="button"
+                                @click="openAssign({{ Js::from($order) }})"
+                                class="flex-1 min-h-[48px] px-4 py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-base transition-colors cursor-pointer shadow-xs">
+                            Tugaskan Teknisi
+                        </button>
+                        <form method="POST" action="{{ route('admin.order.cancel', $order->id) }}" onsubmit="return confirm('Batalkan pesanan ini?');" class="sm:w-auto">
+                            @csrf
+                            <button type="submit"
+                                    class="w-full min-h-[48px] px-4 py-3 rounded-xl border-2 border-[#FCA5A5] bg-surface hover:bg-[#FEE2E2] text-[#B91C1C] font-bold text-base transition-colors cursor-pointer">
+                                Batalkan Pesanan
+                            </button>
+                        </form>
+                    @elseif(in_array($order->status, ['dijadwalkan', 'dikerjakan']))
+                        <button type="button"
+                                @click="openAssign({{ Js::from($order) }})"
+                                class="w-full min-h-[48px] px-4 py-3 rounded-xl border-2 border-primary bg-surface hover:bg-primary-subtle text-primary font-bold text-base transition-colors cursor-pointer">
+                            Ubah Jadwal / Teknisi
+                        </button>
+                    @elseif(in_array($order->status, ['menunggu_verifikasi', 'menunggu_bayar']))
+                        <button type="button"
+                                @click="openPay({{ Js::from($order) }})"
+                                class="w-full min-h-[48px] px-4 py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-base transition-colors cursor-pointer shadow-xs">
+                            Verifikasi Bukti
+                        </button>
+                    @elseif($order->status === 'pekerjaan_selesai')
+                        <div class="w-full min-h-[48px] px-4 py-3 rounded-xl bg-bg-main border border-primary-border text-center text-base font-semibold text-text-muted flex items-center justify-center">
+                            Menunggu Teknisi
+                        </div>
+                    @elseif($order->status === 'selesai')
+                        <a href="{{ route('admin.order.receipt', $order->id) }}"
+                           class="w-full min-h-[48px] px-4 py-3 rounded-xl border-2 border-primary bg-surface hover:bg-primary-subtle text-primary font-bold text-base transition-colors flex items-center justify-center">
+                            Lihat Kuitansi Resmi
+                        </a>
+                    @endif
+                </div>
+            </article>
+        @empty
+            <div class="bg-surface rounded-2xl border-2 border-dashed border-primary-border p-10 text-center space-y-1">
+                <p class="text-base font-bold text-text-main">Tidak ada data pesanan pada tab ini.</p>
+                <p class="text-sm text-text-muted">Pesanan yang sesuai kategori ini akan tampil otomatis di sini.</p>
+            </div>
+        @endforelse
     </div>
 
-    <!-- BILAH TAB STATUS HORIZONTAL RAPI (Sesuai Panduan Section 5.3) -->
-    <div class="bg-white border border-gray-200 rounded-xl p-1.5 flex flex-wrap gap-1 text-xs sm:text-sm font-medium shadow-xs">
-        <!-- Tab 1: Pesanan Baru -->
-        <a href="{{ route('admin.dashboard', ['tab' => 'pesanan_baru']) }}" 
-           class="flex-1 min-w-[130px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all {{ $activeTab === 'pesanan_baru' ? 'bg-[#1E3E34] text-white font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }}">
-            <span>Pesanan Baru</span>
-            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $activeTab === 'pesanan_baru' ? 'bg-white text-[#1E3E34]' : 'bg-[#FEF3C7] text-[#92400E]' }}">
-                {{ $counts['pesanan_baru'] }}
-            </span>
-        </a>
-
-        <!-- Tab 2: Sedang Berjalan -->
-        <a href="{{ route('admin.dashboard', ['tab' => 'berjalan']) }}" 
-           class="flex-1 min-w-[130px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all {{ $activeTab === 'berjalan' ? 'bg-[#1E3E34] text-white font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }}">
-            <span>Sedang Berjalan</span>
-            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $activeTab === 'berjalan' ? 'bg-white text-[#1E3E34]' : 'bg-[#E0F2FE] text-[#0369A1]' }}">
-                {{ $counts['berjalan'] }}
-            </span>
-        </a>
-
-        <!-- Tab 3: Verifikasi Bukti Foto -->
-        <a href="{{ route('admin.dashboard', ['tab' => 'verifikasi_bukti']) }}" 
-           class="flex-1 min-w-[130px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all {{ in_array($activeTab, ['verifikasi_bukti', 'menunggu_bayar']) ? 'bg-[#1E3E34] text-white font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }}">
-            <span>Verifikasi Bukti Foto</span>
-            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ in_array($activeTab, ['verifikasi_bukti', 'menunggu_bayar']) ? 'bg-white text-[#1E3E34]' : 'bg-[#FFEDD5] text-[#C2410C]' }}">
-                {{ $counts['verifikasi_bukti'] ?? ($counts['menunggu_bayar'] ?? 0) }}
-            </span>
-        </a>
-
-        <!-- Tab 4: Riwayat Beres -->
-        <a href="{{ route('admin.dashboard', ['tab' => 'selesai']) }}" 
-           class="flex-1 min-w-[130px] py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all {{ $activeTab === 'selesai' ? 'bg-[#1E3E34] text-white font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }}">
-            <span>Selesai & Lunas</span>
-            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $activeTab === 'selesai' ? 'bg-white text-[#1E3E34]' : 'bg-[#DCFCE7] text-[#15803D]' }}">
-                {{ $counts['selesai'] }}
-            </span>
-        </a>
-    </div>
-
-    <!-- TABEL DATA RAPI DENGAN COMFORTABLE PADDING 14PX (Section 5.3) -->
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+    <!-- ========================================================================= -->
+    <!-- TAMPILAN DESKTOP (lg+): TABEL OPERASIONAL PROFESIONAL                     -->
+    <!-- ========================================================================= -->
+    <div class="hidden lg:block bg-surface rounded-2xl border border-primary-border overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
-                <thead class="bg-gray-50 border-b border-gray-200 text-gray-700 font-semibold uppercase text-[11px] tracking-wider">
+            <table class="w-full text-left">
+                <thead class="bg-primary-subtle/70 border-b border-primary-border text-primary font-bold uppercase text-sm tracking-wide">
                     <tr>
-                        <th class="py-3.5 px-4">No. Order & Waktu</th>
-                        <th class="py-3.5 px-4">Masjid & Alamat</th>
-                        <th class="py-3.5 px-4">Layanan & Keluhan</th>
-                        <th class="py-3.5 px-4">Teknisi Bertugas</th>
-                        <th class="py-3.5 px-4 text-right">Total Biaya</th>
-                        <th class="py-3.5 px-4 text-center">Status</th>
-                        <th class="py-3.5 px-4 text-right">Aksi</th>
+                        <th class="py-4 px-4">No. Order &amp; Waktu</th>
+                        <th class="py-4 px-4">Masjid &amp; Kontak</th>
+                        <th class="py-4 px-4">Layanan &amp; Lampiran</th>
+                        <th class="py-4 px-4">Teknisi</th>
+                        <th class="py-4 px-4 text-right">Total Biaya</th>
+                        <th class="py-4 px-4 text-center">Status</th>
+                        <th class="py-4 px-4 text-right">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
+                <tbody class="divide-y divide-primary-border/60 text-sm">
                     @forelse($orders as $order)
-                        <tr class="hover:bg-gray-50/80 transition-colors">
-                            
+                        <tr class="hover:bg-primary-subtle/30 transition-colors align-top">
                             <!-- No. Order -->
-                            <td class="py-3.5 px-4 whitespace-nowrap">
-                                <span class="font-mono font-bold text-gray-900 block">{{ $order->order_number }}</span>
-                                <span class="text-gray-500 text-[11px]">{{ $order->created_at->translatedFormat('d M, H:i') }}</span>
+                            <td class="py-4 px-4 whitespace-nowrap">
+                                <span class="font-mono font-extrabold text-primary text-base block">{{ $order->order_number }}</span>
+                                <span class="text-text-muted text-sm">{{ $order->created_at->translatedFormat('d M, H:i') }} WIB</span>
                             </td>
 
                             <!-- Masjid & Kontak -->
-                            <td class="py-3.5 px-4 max-w-[220px]">
-                                <strong class="text-sm font-semibold text-gray-900 block truncate">{{ $order->masjid->name }}</strong>
-                                <span class="text-gray-500 text-[11px] block truncate">{{ $order->masjid->address }}</span>
-                                <span class="text-gray-600 text-[11px] block mt-0.5">{{ $order->masjid->pic_name }} ({{ $order->masjid->pic_phone }})</span>
+                            <td class="py-4 px-4 max-w-[240px]">
+                                <strong class="text-base font-bold text-text-main block">{{ $order->masjid->name }}</strong>
+                                <span class="text-text-muted text-sm block truncate">{{ $order->masjid->address }}</span>
+                                <span class="text-text-main text-sm block mt-1">
+                                    {{ $order->masjid->pic_name }}
+                                    <span class="font-mono text-text-muted">({{ $order->masjid->pic_phone }})</span>
+                                </span>
                             </td>
 
-                            <!-- Layanan & AC -->
-                            <td class="py-3.5 px-4">
-                                <span class="font-medium text-gray-900 block">{{ $order->dkm_complaint }}</span>
-                                <span class="text-gray-500 text-[11px]">{{ $order->ac_count }} Unit AC &bull; Jadwal: {{ $order->service_time ?? '-' }}</span>
+                            <!-- Layanan & Lampiran -->
+                            <td class="py-4 px-4 max-w-[260px] space-y-1.5">
+                                <span class="font-bold text-text-main block">{{ $order->dkm_complaint }}</span>
+                                <span class="text-text-muted block">
+                                    {{ $order->ac_count }} Unit AC &bull; {{ $order->service_date ? $order->service_date->translatedFormat('d M') : '-' }} ({{ $order->service_time ?? '-' }})
+                                </span>
                                 @if($order->additional_amount > 0)
-                                    <span class="block text-[11px] text-amber-800 font-medium mt-0.5">
+                                    <span class="block text-[#92400E] font-semibold">
                                         + Sparepart: {{ $order->additional_notes }}
                                     </span>
                                 @endif
-                                @if($order->photos->isNotEmpty())
-                                    <div class="mt-1">
-                                        <button type="button" 
+                                <div class="flex flex-wrap gap-1.5 pt-1">
+                                    @if($order->photos->isNotEmpty())
+                                        <button type="button"
                                                 @click="openPhotos({{ Js::from($order->photos) }}, '{{ $order->order_number }}')"
-                                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-[11px] cursor-pointer">
+                                                class="min-h-[36px] px-3 py-1 rounded-lg bg-bg-main hover:bg-primary-subtle border border-primary-border text-text-main font-semibold text-sm cursor-pointer transition-colors">
                                             {{ $order->photos->count() }} Foto Bukti
                                         </button>
-                                    </div>
-                                @endif
-                                @if($order->payment_proof)
-                                    <div class="mt-1">
-                                        <button type="button" 
+                                    @endif
+                                    @if($order->payment_proof)
+                                        <button type="button"
                                                 @click="openPay({{ Js::from($order) }})"
-                                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] cursor-pointer">
+                                                class="min-h-[36px] px-3 py-1 rounded-lg bg-[#E0F2FE] hover:bg-[#BAE6FD]/60 border border-[#BAE6FD] text-[#0369A1] font-bold text-sm cursor-pointer transition-colors">
                                             Bukti Transfer Tersedia
                                         </button>
-                                    </div>
-                                @endif
+                                    @endif
+                                </div>
                             </td>
 
                             <!-- Teknisi -->
-                            <td class="py-3.5 px-4 whitespace-nowrap">
+                            <td class="py-4 px-4 whitespace-nowrap">
                                 @if($order->technician)
-                                    <span class="font-semibold text-gray-900 block">{{ $order->technician->name }}</span>
-                                    <span class="text-gray-500 text-[11px] font-mono">{{ $order->technician->phone }}</span>
+                                    <span class="font-bold text-text-main block text-base">{{ $order->technician->name }}</span>
+                                    <span class="text-text-muted font-mono text-sm">{{ $order->technician->phone }}</span>
                                 @else
-                                    <span class="text-amber-800 font-medium text-xs">Belum ditugaskan</span>
+                                    <span class="text-[#92400E] font-bold">Belum ditugaskan</span>
                                 @endif
                             </td>
 
                             <!-- Total Biaya -->
-                            <td class="py-3.5 px-4 text-right whitespace-nowrap">
-                                <span class="font-bold text-sm text-gray-900 block">
+                            <td class="py-4 px-4 text-right whitespace-nowrap">
+                                <span class="font-extrabold font-mono text-base text-primary block">
                                     Rp {{ number_format($order->grandTotal(), 0, ',', '.') }}
                                 </span>
                                 @if($order->additional_amount > 0)
-                                    <span class="text-[11px] text-gray-500">Dasar: {{ number_format($order->base_amount, 0, ',', '.') }}</span>
+                                    <span class="text-sm text-text-muted font-mono">
+                                        Dasar: {{ number_format($order->base_amount, 0, ',', '.') }}
+                                    </span>
                                 @endif
                             </td>
 
-                            <!-- Status Badge Bersih Sesuai Palet Warna Section 2.3 -->
-                            <td class="py-3.5 px-4 text-center whitespace-nowrap">
-                                <span class="inline-block px-2.5 py-1 rounded-md text-xs font-semibold
+                            <!-- Status Badge -->
+                            <td class="py-4 px-4 text-center whitespace-nowrap">
+                                <span class="inline-block px-3 py-1.5 rounded-lg text-sm font-bold
                                     {{ $order->status === 'pesanan_baru' ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]' : '' }}
                                     {{ in_array($order->status, ['dijadwalkan', 'dikerjakan']) ? 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]' : '' }}
-                                    {{ $order->status === 'pekerjaan_selesai' ? 'bg-amber-100 text-amber-800 border border-amber-300' : '' }}
+                                    {{ $order->status === 'pekerjaan_selesai' ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]' : '' }}
                                     {{ $order->status === 'menunggu_verifikasi' ? 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]' : '' }}
                                     {{ $order->status === 'menunggu_bayar' ? 'bg-[#FFEDD5] text-[#C2410C] border border-[#FDBA74]' : '' }}
                                     {{ $order->status === 'selesai' ? 'bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC]' : '' }}
@@ -235,50 +414,49 @@
                                 </span>
                             </td>
 
-                            <!-- Tombol Aksi Teks Langsung (Section 5.3) -->
-                            <td class="py-3.5 px-4 text-right whitespace-nowrap">
-                                <div class="flex items-center justify-end gap-1.5">
+                            <!-- Aksi -->
+                            <td class="py-4 px-4 text-right whitespace-nowrap">
+                                <div class="flex items-center justify-end gap-2">
                                     @if($order->status === 'pesanan_baru')
-                                        <button type="button" 
+                                        <button type="button"
                                                 @click="openAssign({{ Js::from($order) }})"
-                                                class="px-3 py-1.5 rounded-md bg-[#1E3E34] hover:bg-[#142B24] text-white font-medium text-xs transition-colors cursor-pointer">
+                                                class="min-h-[44px] px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-sm transition-colors cursor-pointer">
                                             Tugaskan
                                         </button>
                                         <form method="POST" action="{{ route('admin.order.cancel', $order->id) }}" onsubmit="return confirm('Batalkan pesanan ini?');" class="inline">
                                             @csrf
-                                            <button type="submit" class="px-2 py-1.5 text-gray-500 hover:text-red-700 text-xs font-medium cursor-pointer">
+                                            <button type="submit" class="min-h-[44px] px-3 py-2 rounded-xl border border-[#FCA5A5] text-[#B91C1C] hover:bg-[#FEE2E2] text-sm font-bold cursor-pointer transition-colors">
                                                 Batal
                                             </button>
                                         </form>
                                     @elseif(in_array($order->status, ['dijadwalkan', 'dikerjakan']))
-                                        <button type="button" 
+                                        <button type="button"
                                                 @click="openAssign({{ Js::from($order) }})"
-                                                class="px-3 py-1.5 rounded-md border border-gray-300 hover:bg-gray-100 text-gray-800 font-medium text-xs transition-colors cursor-pointer">
+                                                class="min-h-[44px] px-4 py-2 rounded-xl border-2 border-primary bg-surface hover:bg-primary-subtle text-primary font-bold text-sm transition-colors cursor-pointer">
                                             Ubah Jadwal
                                         </button>
                                     @elseif(in_array($order->status, ['menunggu_verifikasi', 'menunggu_bayar']))
-                                        <button type="button" 
+                                        <button type="button"
                                                 @click="openPay({{ Js::from($order) }})"
-                                                class="px-3.5 py-1.5 rounded-md bg-[#1E3E34] hover:bg-[#142B24] text-white font-semibold text-xs transition-colors cursor-pointer">
+                                                class="min-h-[44px] px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-sm transition-colors cursor-pointer">
                                             Verifikasi Bukti
                                         </button>
                                     @elseif($order->status === 'pekerjaan_selesai')
-                                        <span class="text-xs text-gray-500 italic">
+                                        <span class="text-sm font-semibold text-text-muted italic">
                                             Menunggu Teknisi
                                         </span>
                                     @elseif($order->status === 'selesai')
-                                        <a href="{{ route('admin.order.receipt', $order->id) }}" 
-                                            class="px-3 py-1.5 rounded-md border border-gray-300 hover:bg-gray-100 text-gray-800 font-medium text-xs transition-colors inline-block text-decoration-none">
+                                        <a href="{{ route('admin.order.receipt', $order->id) }}"
+                                           class="min-h-[44px] px-4 py-2 rounded-xl border-2 border-primary bg-surface hover:bg-primary-subtle text-primary font-bold text-sm transition-colors inline-flex items-center">
                                             Kuitansi
                                         </a>
                                     @endif
                                 </div>
                             </td>
-
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="py-10 text-center text-gray-400 text-xs">
+                            <td colspan="7" class="py-12 text-center text-text-muted text-base font-medium">
                                 Tidak ada data pesanan pada tab ini.
                             </td>
                         </tr>
@@ -294,44 +472,72 @@
     </div>
 
     <!-- ========================================================================= -->
-    <!-- MODAL PENUGASAN TEKNISI -->
+    <!-- MODAL 1: PENUGASAN TEKNISI & JADWAL SERVIS                                -->
     <!-- ========================================================================= -->
-    <div x-show="showAssignModal" 
+    <div x-show="showAssignModal"
          x-cloak
-         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-        <div @click.away="showAssignModal = false" 
-             class="bg-white rounded-xl border border-gray-200 max-w-md w-full p-6 shadow-xl space-y-4">
-            
-            <div class="flex items-center justify-between pb-3 border-b border-gray-100">
-                <h3 class="text-base font-bold text-gray-900">
-                    Penugasan Teknisi & Jadwal Servis
-                </h3>
-                <button type="button" @click="showAssignModal = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer">&times;</button>
+         role="dialog"
+         aria-modal="true"
+         aria-label="Penugasan Teknisi dan Jadwal Servis"
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div @click.away="showAssignModal = false"
+             class="bg-surface rounded-2xl border-2 border-primary-border max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+
+            <div class="flex items-center justify-between gap-3 pb-3 border-b border-primary-border">
+                <div>
+                    <h3 class="text-xl font-extrabold text-text-main">Penugasan Teknisi &amp; Jadwal</h3>
+                    <p class="text-sm font-mono text-primary font-semibold" x-text="selectedOrder ? selectedOrder.order_number : ''"></p>
+                </div>
+                <button type="button"
+                        @click="showAssignModal = false"
+                        aria-label="Tutup modal penugasan"
+                        class="tap-target inline-flex items-center justify-center rounded-xl bg-bg-main hover:bg-primary-subtle text-text-main text-2xl font-bold cursor-pointer shrink-0">
+                    &times;
+                </button>
             </div>
 
             <template x-if="selectedOrder">
                 <form :action="'/admin/order/' + selectedOrder.id + '/assign'" method="POST" class="space-y-4">
                     @csrf
-                    
-                    <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs">
-                        <span class="text-gray-500 block">Masjid:</span>
-                        <strong class="text-gray-900 text-sm block" x-text="selectedOrder.masjid.name"></strong>
-                        <span class="text-gray-600 block mt-0.5" x-text="selectedOrder.ac_count + ' Unit AC &bull; ' + selectedOrder.dkm_complaint"></span>
+
+                    <!-- Ringkasan Masjid -->
+                    <div class="p-4 bg-primary-subtle rounded-xl border border-primary-border space-y-1">
+                        <span class="text-sm font-semibold text-text-muted block">Masjid / Musholla</span>
+                        <strong class="text-text-main text-base font-extrabold block" x-text="selectedOrder.masjid.name"></strong>
+                        <span class="text-text-muted text-sm block" x-text="selectedOrder.ac_count + ' Unit AC • ' + selectedOrder.dkm_complaint"></span>
+                    </div>
+
+                    <!-- Banner Info Jika Pelanggan Memilih Waktu Fleksibel / Non-Resmi -->
+                    <div x-show="isFlexibleOrderTime" x-cloak class="p-4 rounded-xl bg-[#FEF3C7] border-2 border-[#FCD34D] text-[#92400E] space-y-1">
+                        <strong class="block text-base font-bold">Informasi Sesi Waktu</strong>
+                        <p class="text-sm leading-relaxed font-medium">
+                            Pelanggan memilih waktu fleksibel. Silakan pilih salah satu dari 3 sesi resmi di bawah untuk menjadwalkan teknisi.
+                        </p>
+                        <p class="text-sm font-semibold">
+                            Pilihan awal pelanggan: <span x-text="originalOrderTime"></span>
+                        </p>
                     </div>
 
                     <!-- Tanggal Servis -->
-                    <div class="space-y-1">
-                        <label class="block text-xs font-semibold text-gray-800">Tanggal Kedatangan:</label>
-                        <input type="date" name="service_date" required 
+                    <div class="space-y-1.5">
+                        <label for="assign_service_date" class="block text-base font-bold text-text-main">Tanggal Kedatangan</label>
+                        <input type="date"
+                               id="assign_service_date"
+                               name="service_date"
+                               required
                                x-model="assignDate"
                                @change="checkTechSchedules()"
-                               class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+                               class="w-full min-h-[50px] px-4 py-3 rounded-xl border-2 border-primary-border text-base text-text-main font-semibold outline-none focus:border-primary bg-surface">
                     </div>
 
-                    <!-- Jam Servis -->
-                    <div class="space-y-1">
-                        <label class="block text-xs font-semibold text-gray-800">Sesi Jam Kedatangan:</label>
-                        <select name="service_time" required x-model="assignTime" class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 outline-none focus:border-[#1E3E34] bg-white">
+                    <!-- Jam Servis (EXACT STRING MATCH 3 SESI RESMI) -->
+                    <div class="space-y-1.5">
+                        <label for="assign_service_time" class="block text-base font-bold text-text-main">Sesi Jam Kedatangan</label>
+                        <select id="assign_service_time"
+                                name="service_time"
+                                required
+                                x-model="assignTime"
+                                class="w-full min-h-[50px] px-4 py-3 rounded-xl border-2 border-primary-border text-base text-text-main font-semibold outline-none focus:border-primary bg-surface">
                             <option value="Pagi (08:30 - 11:30 WIB)">Pagi (08:30 - 11:30 WIB)</option>
                             <option value="Siang Ba'da Dzuhur (13:00 - 15:00 WIB)">Siang Ba'da Dzuhur (13:00 - 15:00 WIB)</option>
                             <option value="Sore Ba'da Ashar (16:00 - 17:30 WIB)">Sore Ba'da Ashar (16:00 - 17:30 WIB)</option>
@@ -339,14 +545,17 @@
                     </div>
 
                     <!-- Pilih Teknisi -->
-                    <div class="space-y-1">
-                        <div class="flex items-center justify-between">
-                            <label class="block text-xs font-semibold text-gray-800">Pilih Teknisi Lapangan:</label>
-                            <span x-show="loadingSchedules" class="text-[11px] text-gray-500 italic">Memeriksa jadwal...</span>
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <label for="assign_technician_id" class="block text-base font-bold text-text-main">Pilih Teknisi Lapangan</label>
+                            <span x-show="loadingSchedules" class="text-sm text-primary font-semibold italic">Memeriksa jadwal...</span>
                         </div>
-                        <select name="technician_id" required x-model="assignTechId" 
-                                class="w-full min-h-[44px] px-3.5 py-2.5 rounded-lg border text-xs text-gray-900 outline-none bg-white transition-colors"
-                                :class="selectedTechConflict ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[#1E3E34]'">
+                        <select id="assign_technician_id"
+                                name="technician_id"
+                                required
+                                x-model="assignTechId"
+                                class="w-full min-h-[50px] px-4 py-3 rounded-xl border-2 text-base text-text-main font-semibold outline-none bg-surface transition-colors"
+                                :class="selectedTechConflict ? 'border-[#B91C1C] focus:border-[#B91C1C]' : 'border-primary-border focus:border-primary'">
                             <option value="">-- Pilih Teknisi --</option>
                             @foreach($technicians as $tech)
                                 <option value="{{ $tech->id }}" x-text="getTechOptionLabel({{ Js::from($tech) }})">
@@ -356,48 +565,49 @@
                         </select>
                     </div>
 
-                    <!-- KOTAK STATUS JADWAL & INDIKATOR BENTROK -->
-                    <div class="space-y-2 pt-1">
-                        <!-- Peringatan Bentrok Jadwal -->
-                        <div x-show="selectedTechConflict" x-cloak class="p-3.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 space-y-1">
-                            <div class="flex items-center justify-between">
-                                <strong class="font-bold text-red-900 block">Peringatan: Jadwal Bentrok!</strong>
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-200 text-red-900">BENTROK</span>
+                    <!-- Status Ketersediaan / Bentrok Jadwal -->
+                    <div class="space-y-2.5">
+                        <div x-show="selectedTechConflict" x-cloak class="p-4 bg-[#FEE2E2] border-2 border-[#FCA5A5] rounded-xl text-[#7F1D1D] space-y-1.5">
+                            <div class="flex items-center justify-between gap-2">
+                                <strong class="text-base font-extrabold">Peringatan: Jadwal Bentrok!</strong>
+                                <span class="px-2.5 py-0.5 rounded-md text-sm font-bold bg-[#B91C1C] text-white">BENTROK</span>
                             </div>
-                            <p class="leading-relaxed">
-                                Teknisi ini sudah memiliki jadwal servis di <strong x-text="selectedTechConflict ? selectedTechConflict.masjid_name : ''"></strong> pada sesi <strong x-text="assignTime"></strong>.
+                            <p class="text-sm leading-relaxed">
+                                Teknisi ini sudah terjadwal di <strong x-text="selectedTechConflict ? selectedTechConflict.masjid_name : ''"></strong> pada sesi <strong x-text="assignTime"></strong>.
                             </p>
-                            <span class="block text-[11px] text-red-700 italic">
-                                * Tombol simpan dinonaktifkan. Silakan pilih sesi jam lain atau teknisi yang tersedia.
-                            </span>
+                            <p class="text-sm font-semibold">
+                                * Tombol simpan dinonaktifkan. Pilih sesi lain atau teknisi lain yang tersedia.
+                            </p>
                         </div>
 
-                        <!-- Jadwal Lain di Hari Tersebut Tapi Beda Sesi (Aman) -->
-                        <div x-show="!selectedTechConflict && selectedTechOtherTasks.length > 0" x-cloak class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 space-y-1.5">
-                            <strong class="font-semibold block text-blue-900">Info Jadwal Teknisi di Hari Ini:</strong>
-                            <ul class="list-disc list-inside text-[11px] space-y-0.5 text-blue-800">
+                        <div x-show="!selectedTechConflict && selectedTechOtherTasks.length > 0" x-cloak class="p-4 bg-[#E0F2FE] border-2 border-[#BAE6FD] rounded-xl text-[#0C4A6E] space-y-1.5">
+                            <strong class="text-base font-bold block">Info Jadwal Teknisi di Tanggal Ini:</strong>
+                            <ul class="list-disc list-inside text-sm space-y-1">
                                 <template x-for="task in selectedTechOtherTasks" :key="task.order_id">
                                     <li><span x-text="task.service_time + ' di ' + task.masjid_name"></span></li>
                                 </template>
                             </ul>
-                            <p class="text-[11px] text-blue-700">
-                                Sesi <strong x-text="assignTime"></strong> masih aman dan tersedia untuk ditugaskan.
+                            <p class="text-sm font-semibold text-[#0369A1]">
+                                Sesi <strong x-text="assignTime"></strong> masih kosong dan aman untuk ditugaskan.
                             </p>
                         </div>
 
-                        <!-- Tersedia Penuh (0 Tugas) -->
-                        <div x-show="assignTechId && !selectedTechConflict && selectedTechOtherTasks.length === 0" x-cloak class="p-2.5 bg-[#EBF2EE] border border-[#1E3E34]/20 rounded-lg text-xs text-[#1E3E34] flex items-center justify-between">
-                            <span>Teknisi tersedia penuh pada tanggal ini (0 tugas sebelumnya).</span>
-                            <span class="font-bold text-[10px] px-2 py-0.5 rounded bg-[#1E3E34] text-white">TERSEDIA</span>
+                        <div x-show="assignTechId && !selectedTechConflict && selectedTechOtherTasks.length === 0" x-cloak class="p-3.5 bg-primary-subtle border-2 border-primary-border rounded-xl text-sm text-primary flex items-center justify-between gap-2 font-semibold">
+                            <span>Teknisi tersedia penuh pada tanggal ini (0 tugas).</span>
+                            <span class="font-bold px-2.5 py-1 rounded-lg bg-primary text-white shrink-0">TERSEDIA</span>
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
-                        <button type="button" @click="showAssignModal = false" class="px-4 py-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">Batal</button>
-                        <button type="submit" 
+                    <div class="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-primary-border">
+                        <button type="button"
+                                @click="showAssignModal = false"
+                                class="min-h-[48px] px-5 py-2.5 text-base font-bold text-text-main bg-bg-main hover:bg-primary-subtle border border-primary-border rounded-xl cursor-pointer transition-colors">
+                            Batal
+                        </button>
+                        <button type="submit"
                                 :disabled="selectedTechConflict"
-                                class="px-5 py-2.5 text-xs font-semibold text-white rounded-lg transition-colors"
-                                :class="selectedTechConflict ? 'opacity-50 cursor-not-allowed bg-gray-400' : 'bg-[#1E3E34] hover:bg-[#142B24] cursor-pointer'">
+                                class="min-h-[48px] px-6 py-2.5 text-base font-bold text-white rounded-xl transition-colors shadow-xs"
+                                :class="selectedTechConflict ? 'opacity-50 cursor-not-allowed bg-gray-400' : 'bg-primary hover:bg-primary-hover cursor-pointer'">
                             Simpan Penugasan
                         </button>
                     </div>
@@ -407,105 +617,120 @@
     </div>
 
     <!-- ========================================================================= -->
-    <!-- MODAL VERIFIKASI PEMBAYARAN -->
+    <!-- MODAL 2: VERIFIKASI PELUNASAN PEMBAYARAN                                  -->
     <!-- ========================================================================= -->
-    <div x-show="showPayModal" 
+    <div x-show="showPayModal"
          x-cloak
-         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-        <div @click.away="showPayModal = false" 
-             class="bg-white rounded-xl border border-gray-200 max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            
-            <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+         role="dialog"
+         aria-modal="true"
+         aria-label="Verifikasi Pelunasan Pembayaran"
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div @click.away="showPayModal = false"
+             class="bg-surface rounded-2xl border-2 border-primary-border max-w-xl w-full p-5 sm:p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+
+            <div class="flex items-center justify-between gap-3 pb-3 border-b border-primary-border">
                 <div>
-                    <h3 class="text-base font-bold text-gray-900">
-                        Verifikasi Pelunasan Pembayaran
-                    </h3>
-                    <p class="text-xs text-gray-500" x-text="'Nomor Pesanan: ' + (selectedOrder ? selectedOrder.order_number : '')"></p>
+                    <h3 class="text-xl font-extrabold text-text-main">Verifikasi Pelunasan Pembayaran</h3>
+                    <p class="text-sm font-mono font-semibold text-primary" x-text="selectedOrder ? 'No. Pesanan: ' + selectedOrder.order_number : ''"></p>
                 </div>
-                <button type="button" @click="showPayModal = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer">&times;</button>
+                <button type="button"
+                        @click="showPayModal = false"
+                        aria-label="Tutup modal verifikasi pembayaran"
+                        class="tap-target inline-flex items-center justify-center rounded-xl bg-bg-main hover:bg-primary-subtle text-text-main text-2xl font-bold cursor-pointer shrink-0">
+                    &times;
+                </button>
             </div>
 
             <template x-if="selectedOrder">
-                <form :action="'/admin/order/' + selectedOrder.id + '/pay'" method="POST" class="space-y-4">
+                <form :action="'/admin/order/' + selectedOrder.id + '/pay'" method="POST" class="space-y-5">
                     @csrf
 
-                    <!-- Foto Bukti Pembayaran / Transfer dari Teknisi -->
+                    <!-- Preview Besar Foto Bukti Transfer / QRIS dari Teknisi -->
                     <template x-if="selectedOrder.payment_proof">
-                        <div class="p-3.5 bg-blue-50/70 rounded-xl border border-blue-200 space-y-2">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold text-blue-900 uppercase tracking-wider">
-                                    Foto Bukti Pembayaran dari Teknisi
+                        <div class="p-4 bg-[#E0F2FE]/60 rounded-2xl border-2 border-[#BAE6FD] space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <span class="text-sm font-extrabold text-[#0369A1] uppercase tracking-wide">
+                                    Foto Bukti Pembayaran Teknisi
                                 </span>
-                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 uppercase"
+                                <span class="px-2.5 py-1 rounded-lg text-sm font-bold bg-surface text-[#0369A1] border border-[#BAE6FD] uppercase"
                                       x-text="'Metode: ' + (selectedOrder.payment_method || 'transfer')"></span>
                             </div>
 
-                            <div class="rounded-lg overflow-hidden border border-blue-200 bg-gray-900 flex items-center justify-center max-h-64">
-                                <img :src="'/storage/' + selectedOrder.payment_proof" 
-                                     alt="Bukti Pembayaran" 
-                                     class="max-h-64 w-auto object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                            <div class="rounded-xl overflow-hidden border-2 border-[#BAE6FD] bg-gray-900 flex items-center justify-center">
+                                <img :src="'/storage/' + selectedOrder.payment_proof"
+                                     alt="Bukti Pembayaran"
+                                     class="max-h-72 w-auto object-contain cursor-pointer hover:opacity-95 transition-opacity"
                                      @click="window.open('/storage/' + selectedOrder.payment_proof, '_blank')">
                             </div>
 
-                            <div class="flex items-center justify-between text-[11px] text-blue-800 pt-0.5">
-                                <span>Klik gambar untuk melihat resolusi penuh</span>
-                                <a :href="'/storage/' + selectedOrder.payment_proof" target="_blank" class="font-bold underline hover:text-blue-900">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm text-[#0369A1]">
+                                <span>Ketuk gambar untuk memperbesar resolusi penuh.</span>
+                                <a :href="'/storage/' + selectedOrder.payment_proof"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="font-bold underline hover:text-[#0C4A6E]">
                                     Buka Foto di Tab Baru &rarr;
                                 </a>
                             </div>
                         </div>
                     </template>
+
                     <template x-if="!selectedOrder.payment_proof">
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-600">
-                            <span>Teknisi tidak menyertakan foto bukti transfer (pembayaran tunai/manual).</span>
+                        <div class="p-4 bg-bg-main rounded-xl border border-primary-border text-sm text-text-muted font-medium">
+                            Teknisi tidak menyertakan foto bukti transfer (pembayaran tunai / manual).
                         </div>
                     </template>
 
-                    <!-- Rincian Biaya -->
-                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 text-xs space-y-1.5">
-                        <span class="text-gray-900 font-bold block" x-text="selectedOrder.masjid.name"></span>
-                        <div class="flex justify-between text-gray-600">
-                            <span>Biaya Servis Dasar:</span>
-                            <span x-text="'Rp ' + new Intl.NumberFormat('id-ID').format(selectedOrder.base_amount)"></span>
+                    <!-- Rincian Tagihan -->
+                    <div class="p-4 bg-primary-subtle rounded-xl border border-primary-border text-sm sm:text-base space-y-2">
+                        <strong class="text-text-main text-base font-extrabold block" x-text="selectedOrder.masjid.name"></strong>
+                        <div class="flex justify-between text-text-muted">
+                            <span>Biaya Servis Dasar</span>
+                            <span class="font-mono font-semibold text-text-main" x-text="'Rp ' + new Intl.NumberFormat('id-ID').format(selectedOrder.base_amount)"></span>
                         </div>
                         <template x-if="selectedOrder.additional_amount > 0">
-                            <div class="flex justify-between text-gray-800 font-medium">
-                                <span>Biaya Sparepart:</span>
-                                <span x-text="'Rp ' + new Intl.NumberFormat('id-ID').format(selectedOrder.additional_amount)"></span>
+                            <div class="flex justify-between text-text-main font-semibold">
+                                <span>Biaya Suku Cadang</span>
+                                <span class="font-mono" x-text="'Rp ' + new Intl.NumberFormat('id-ID').format(selectedOrder.additional_amount)"></span>
                             </div>
                         </template>
-                        <div class="pt-2 border-t border-gray-200 flex justify-between font-bold text-sm text-gray-900">
-                            <span>Total Pembayaran:</span>
-                            <span class="text-[#1E3E34]" x-text="'Rp ' + new Intl.NumberFormat('id-ID').format(parseFloat(selectedOrder.base_amount) + parseFloat(selectedOrder.additional_amount))"></span>
+                        <div class="pt-2.5 border-t border-primary-border flex items-center justify-between font-extrabold text-base sm:text-lg text-text-main">
+                            <span>Total Pembayaran</span>
+                            <span class="text-xl font-mono text-primary" x-text="'Rp ' + new Intl.NumberFormat('id-ID').format(parseFloat(selectedOrder.base_amount) + parseFloat(selectedOrder.additional_amount))"></span>
                         </div>
                     </div>
 
-                    <!-- Pilih Metode Bayar -->
-                    <div class="space-y-1.5">
-                        <label class="block text-xs font-medium text-gray-800">Konfirmasi Metode Pembayaran:</label>
-                        <div class="grid grid-cols-3 gap-2">
-                            <label class="border border-gray-300 rounded-lg p-2.5 text-center cursor-pointer text-xs font-medium hover:border-[#1E3E34]"
-                                   :class="selectedOrder.payment_method === 'transfer' ? 'border-[#1E3E34] bg-[#EBF2EE] text-[#1E3E34] font-bold' : ''">
-                                <input type="radio" name="payment_method" value="transfer" x-model="selectedOrder.payment_method" class="mb-1 block mx-auto">
-                                <span>Transfer</span>
+                    <!-- Pilih Metode Pembayaran (Kartu Radio Besar) -->
+                    <div class="space-y-2">
+                        <span class="block text-base font-bold text-text-main">Konfirmasi Metode Pembayaran:</span>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <label class="min-h-[60px] border-2 rounded-xl p-3.5 cursor-pointer transition-colors flex sm:flex-col items-center sm:justify-center gap-3 sm:gap-1.5 text-base font-bold"
+                                   :class="selectedOrder.payment_method === 'transfer' ? 'border-primary bg-primary-subtle text-primary ring-1 ring-primary' : 'border-primary-border bg-surface text-text-main hover:bg-primary-subtle/40'">
+                                <input type="radio" name="payment_method" value="transfer" x-model="selectedOrder.payment_method" class="w-5 h-5 accent-primary cursor-pointer">
+                                <span>Transfer Bank</span>
                             </label>
-                            <label class="border border-gray-300 rounded-lg p-2.5 text-center cursor-pointer text-xs font-medium hover:border-[#1E3E34]"
-                                   :class="selectedOrder.payment_method === 'qris' ? 'border-[#1E3E34] bg-[#EBF2EE] text-[#1E3E34] font-bold' : ''">
-                                <input type="radio" name="payment_method" value="qris" x-model="selectedOrder.payment_method" class="mb-1 block mx-auto">
+                            <label class="min-h-[60px] border-2 rounded-xl p-3.5 cursor-pointer transition-colors flex sm:flex-col items-center sm:justify-center gap-3 sm:gap-1.5 text-base font-bold"
+                                   :class="selectedOrder.payment_method === 'qris' ? 'border-primary bg-primary-subtle text-primary ring-1 ring-primary' : 'border-primary-border bg-surface text-text-main hover:bg-primary-subtle/40'">
+                                <input type="radio" name="payment_method" value="qris" x-model="selectedOrder.payment_method" class="w-5 h-5 accent-primary cursor-pointer">
                                 <span>QRIS</span>
                             </label>
-                            <label class="border border-gray-300 rounded-lg p-2.5 text-center cursor-pointer text-xs font-medium hover:border-[#1E3E34]"
-                                   :class="selectedOrder.payment_method === 'cash' ? 'border-[#1E3E34] bg-[#EBF2EE] text-[#1E3E34] font-bold' : ''">
-                                <input type="radio" name="payment_method" value="cash" x-model="selectedOrder.payment_method" class="mb-1 block mx-auto">
+                            <label class="min-h-[60px] border-2 rounded-xl p-3.5 cursor-pointer transition-colors flex sm:flex-col items-center sm:justify-center gap-3 sm:gap-1.5 text-base font-bold"
+                                   :class="selectedOrder.payment_method === 'cash' ? 'border-primary bg-primary-subtle text-primary ring-1 ring-primary' : 'border-primary-border bg-surface text-text-main hover:bg-primary-subtle/40'">
+                                <input type="radio" name="payment_method" value="cash" x-model="selectedOrder.payment_method" class="w-5 h-5 accent-primary cursor-pointer">
                                 <span>Tunai</span>
                             </label>
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-end gap-2 pt-2">
-                        <button type="button" @click="showPayModal = false" class="px-4 py-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">Batal</button>
-                        <button type="submit" class="px-5 py-2.5 text-xs font-semibold text-white bg-[#1E3E34] hover:bg-[#142B24] rounded-lg cursor-pointer transition-colors">
-                            Verifikasi Lunas & Buat Kuitansi
+                    <div class="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-primary-border">
+                        <button type="button"
+                                @click="showPayModal = false"
+                                class="min-h-[48px] px-5 py-2.5 text-base font-bold text-text-main bg-bg-main hover:bg-primary-subtle border border-primary-border rounded-xl cursor-pointer transition-colors">
+                            Batal
+                        </button>
+                        <button type="submit"
+                                class="min-h-[50px] px-6 py-3 text-base font-extrabold text-white bg-primary hover:bg-primary-hover rounded-xl cursor-pointer transition-colors shadow-xs">
+                            Verifikasi Lunas &amp; Buat Kuitansi
                         </button>
                     </div>
                 </form>
@@ -514,40 +739,55 @@
     </div>
 
     <!-- ========================================================================= -->
-    <!-- MODAL LIHAT FOTO BUKTI SERVIS OLEH ADMIN -->
+    <!-- MODAL 3: GALERI FOTO BUKTI SERVIS LAPANGAN                                -->
     <!-- ========================================================================= -->
-    <div x-show="showPhotosModal" 
+    <div x-show="showPhotosModal"
          x-cloak
+         role="dialog"
+         aria-modal="true"
+         aria-label="Foto Bukti Servis Lapangan"
          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-        <div @click.away="showPhotosModal = false" 
-             class="bg-white rounded-xl border border-gray-200 max-w-2xl w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            
-            <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div @click.away="showPhotosModal = false"
+             class="bg-surface rounded-2xl border-2 border-primary-border max-w-2xl w-full p-5 sm:p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+
+            <div class="flex items-center justify-between gap-3 pb-3 border-b border-primary-border">
                 <div>
-                    <h3 class="text-base font-bold text-gray-900">
-                        Foto Bukti Servis Lapangan
-                    </h3>
-                    <p class="text-xs text-gray-500" x-text="'Nomor Pesanan: ' + activeOrderNumber"></p>
+                    <h3 class="text-xl font-extrabold text-text-main">Foto Bukti Servis Lapangan</h3>
+                    <p class="text-sm font-mono font-semibold text-primary" x-text="'No. Pesanan: ' + activeOrderNumber"></p>
                 </div>
-                <button type="button" @click="showPhotosModal = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer">&times;</button>
+                <button type="button"
+                        @click="showPhotosModal = false"
+                        aria-label="Tutup modal foto bukti"
+                        class="tap-target inline-flex items-center justify-center rounded-xl bg-bg-main hover:bg-primary-subtle text-text-main text-2xl font-bold cursor-pointer shrink-0">
+                    &times;
+                </button>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <template x-for="photo in activePhotos" :key="photo.id">
-                    <div class="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-xs flex flex-col justify-between">
-                        <div class="relative bg-gray-100">
-                            <img :src="photo.url || ('/storage/' + photo.photo_url)" alt="Bukti Servis" class="w-full h-40 object-cover">
-                            <span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm"
-                                  :class="photo.photo_type === 'sebelum' ? 'bg-amber-100 text-amber-800 border border-amber-300' : (photo.photo_type === 'sesudah' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-blue-100 text-blue-800 border border-blue-300')"
+                    <div class="rounded-2xl border-2 border-primary-border overflow-hidden bg-surface shadow-xs flex flex-col justify-between">
+                        <div class="relative bg-bg-main">
+                            <img :src="photo.url || ('/storage/' + photo.photo_url)"
+                                 alt="Bukti Servis"
+                                 @click="window.open(photo.url || ('/storage/' + photo.photo_url), '_blank')"
+                                 class="w-full h-44 object-cover cursor-pointer hover:opacity-95 transition-opacity">
+                            <span class="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg text-sm font-bold uppercase shadow-xs border"
+                                  :class="photo.photo_type === 'sebelum' ? 'bg-[#FEF3C7] text-[#92400E] border-[#FCD34D]' : (photo.photo_type === 'sesudah' ? 'bg-[#DCFCE7] text-[#15803D] border-[#86EFAC]' : 'bg-[#E0F2FE] text-[#0369A1] border-[#BAE6FD]')"
                                   x-text="photo.photo_type"></span>
                         </div>
-                        <div class="p-3 text-xs space-y-2">
-                            <p class="text-gray-800 font-medium" x-text="photo.caption || 'Tanpa keterangan'"></p>
-                            <div class="flex items-center justify-end pt-1.5 border-t border-gray-100">
+                        <div class="p-3.5 text-sm space-y-3">
+                            <p class="text-text-main font-semibold leading-snug" x-text="photo.caption || 'Tanpa keterangan'"></p>
+                            <div class="flex items-center justify-between gap-2 pt-2 border-t border-primary-border/60">
+                                <a :href="photo.url || ('/storage/' + photo.photo_url)"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="min-h-[44px] inline-flex items-center text-sm font-bold text-primary hover:underline">
+                                    Lihat Penuh &rarr;
+                                </a>
                                 <form :action="'/admin/order/foto/' + photo.id" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus foto bukti servis ini?')">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="px-2.5 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 font-medium text-xs cursor-pointer">
+                                    <button type="submit" class="min-h-[44px] px-3.5 py-2 rounded-xl border border-[#FCA5A5] text-[#B91C1C] hover:bg-[#FEE2E2] font-bold text-sm cursor-pointer transition-colors">
                                         Hapus Foto
                                     </button>
                                 </form>
@@ -557,8 +797,10 @@
                 </template>
             </div>
 
-            <div class="flex justify-end pt-3 border-t border-gray-100">
-                <button type="button" @click="showPhotosModal = false" class="px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg cursor-pointer">
+            <div class="flex justify-end pt-3 border-t border-primary-border">
+                <button type="button"
+                        @click="showPhotosModal = false"
+                        class="min-h-[48px] px-6 py-2.5 text-base font-bold text-text-main bg-bg-main hover:bg-primary-subtle border border-primary-border rounded-xl cursor-pointer transition-colors">
                     Tutup
                 </button>
             </div>
