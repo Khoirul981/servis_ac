@@ -1,212 +1,138 @@
 # Panduan Desain UI/UX & Design System
-## Sistem Servis AC Masjid (Versi Bersih & Ramah Pengguna)
+## Sistem Servis AC Masjid — "Hijau Khidmat Modern, Ramah Orang Tua"
 
-Dokumen ini memuat standar identitas visual, tata letak, palet warna, dan aturan interaksi untuk proyek baru. Panduan ini mengambil esensi ketenangan dan nuansa sejuk dari sistem sebelumnya, namun menyingkirkan elemen visual berlebihan (menghindari tren *glassmorphism* buram, efek animasi berat, dan penumpukan ikon dekoratif yang tidak fungsional).
-
----
-
-## 1. Filosofi Desain
-
-Prinsip dasar antarmuka ini adalah **Utilitarian, Sejuk, dan Mudah Dibaca**:
-
-1. **Bebas Elemen Dekoratif Tak Berguna**: Tidak menggunakan rentetan ikon atau emoji dekoratif di judul, tombol, maupun tabel. Ikon hanya digunakan jika memiliki fungsi navigasi yang jelas (misalnya: ikon telepon untuk menelpon, kaca pembesar untuk mencari).
-2. **Kontras Tinggi (Outdoor & Senior Friendly)**: Menghilangkan efek kartu transparan (*liquid glass/blur*). Teks harus berwarna gelap pekat di atas latar belakang solid terang agar tetap terbaca jelas di ponsel jadul, di bawah terik matahari oleh teknisi, maupun oleh mata pengurus masjid usia 50 tahun ke atas.
-3. **Sentuhan Nyaman (Large Tap Target)**: Setiap tombol aksi utama memiliki tinggi minimal 48 piksel dengan jarak antar elemen yang cukup lega untuk mencegah salah sentuh.
+Standar visual, tata letak, dan interaksi untuk seluruh halaman. Semua refaktor halaman berikutnya WAJIB mengikuti dokumen ini. Sumber token: `resources/css/app.css` (blok `@theme`, Tailwind CSS v4). Master layout: `resources/views/layouts/app.blade.php`.
 
 ---
 
-## 2. Palet Warna (Color Palette)
+## 1. Filosofi
 
-Palet warna mempertahankan identitas "Masjid yang Sejuk & Bersih", menggunakan kombinasi warna hijau daun teduh, netral hangat, dan aksen fungsional.
+1. **Mobile-first**: dirancang untuk HP dulu, desktop menyusul.
+2. **Ramah orang tua**: teks besar, kontras tinggi, tombol besar, kalimat Indonesia sederhana.
+3. **Elegan & berwibawa**: hijau tua dominan, putih-kehijauan lembut, aksen emas sangat minim (maks. 5%).
+4. **Utilitarian**: tanpa glassmorphism, tanpa animasi berat, tanpa ikon dekoratif. Ikon hanya bila fungsional dan selalu disertai label teks.
 
-### 2.1. Warna Utama (Brand & Surface)
+---
 
-| Nama Token | Kode HEX | Peruntukan |
+## 2. Palet Warna (token `@theme`)
+
+| Token (utility) | HEX | Peruntukan |
 |---|---|---|
-| **Primary (Hijau Khidmat)** | `#1E3E34` | Warna tombol utama, bilah navigasi atas, dan judul penting. Memberi kesan resmi, terpercaya, dan tenang. |
-| **Primary Hover** | `#142B24` | Kondisi tombol saat ditekan (*active/hover*). |
-| **Primary Subtle** | `#EBF2EE` | Latar belakang kartu sorotan atau penanda aktif. |
-| **Background (Latar Utama)** | `#F8F9FA` | Latar belakang seluruh halaman aplikasi. Bersih, tidak silau, dan netral. |
-| **Surface (Kartu & Panel)** | `#FFFFFF` | Latar belakang kartu formulir, tabel data, dan popup modal. Menggunakan warna putih solid tanpa transparansi. |
-| **Border (Garis Tepi)** | `#D1D5DB` | Garis pembatas kartu dan input form dengan ketebalan 1px solid yang tegas. |
+| `primary` | `#1B4332` | Deep Emerald: tombol utama, header aktif, judul penting |
+| `primary-hover` | `#123023` | Hover / ditekan tombol utama |
+| `primary-light` | `#2D6A4F` | Aksen sekunder, gradien halus, outline fokus |
+| `primary-subtle` | `#EAF4EE` | Latar highlight, tab/menu aktif, kartu sorotan |
+| `primary-border` | `#C4DFCE` | Garis tepi kartu/header bernuansa hijau |
+| `accent-gold` | `#B08938` | Penanda khusus, maks. 5% area |
+| `bg-main` | `#F4F7F5` | Latar halaman (tidak silau) |
+| `surface` | `#FFFFFF` | Kartu, tabel, modal (solid, tanpa transparansi) |
+| `text-main` | `#13221B` | Teks utama |
+| `text-muted` | `#4A5D54` | Teks bantuan (tetap lolos kontras WCAG AA) |
 
-### 2.2. Warna Teks (Typography Colors)
+Pemakaian di Blade: `bg-primary`, `hover:bg-primary-hover`, `bg-primary-subtle`, `border-primary-border`, `text-text-main`, `text-text-muted`, `bg-bg-main`, `bg-surface`.
+**Halaman baru jangan lagi memakai hex hardcode** (`bg-[#1E3E34]`); gunakan token di atas.
 
-| Nama Token | Kode HEX | Peruntukan |
-|---|---|---|
-| **Text Main** | `#111827` | Teks utama, judul, angka nominal, dan isi label form. Kontras maksimal terhadap latar putih. |
-| **Text Muted** | `#4B5563` | Teks bantuan (*helper text*), tanggal, dan deskripsi sekunder. Tetap memenuhi standar kontras WCAG AA. |
-| **Text On Primary** | `#FFFFFF` | Teks putih di atas tombol hijau pekat. |
+### Warna status fungsional (tetap)
 
-### 2.3. Warna Status Fungsional (Functional Status)
-
-Status pesanan menggunakan warna penanda yang tegas tanpa efek neon:
-
-| Status Pesanan | Warna Latar | Warna Teks | Warna Garis |
+| Status | Latar | Teks | Garis |
 |---|---|---|---|
-| **Pesanan Baru** | `#FEF3C7` (Kuning Pucat) | `#92400E` (Cokelat Emas) | `#FCD34D` |
-| **Dijadwalkan / Dikerjakan** | `#E0F2FE` (Biru Lembut) | `#0369A1` (Biru Pekat) | `#BAE6FD` |
-| **Menunggu Pembayaran** | `#FFEDD5` (Oranye Muda) | `#C2410C` (Oranye Terbakar) | `#FDBA74` |
-| **Selesai & Lunas** | `#DCFCE7` (Hijau Muda) | `#15803D` (Hijau Daun) | `#86EFAC` |
-| **Dibatalkan** | `#FEE2E2` (Merah Pucat) | `#B91C1C` (Merah Gelap) | `#FCA5A5` |
+| Pesanan Baru | `#FEF3C7` | `#92400E` | `#FCD34D` |
+| Dijadwalkan / Dikerjakan / Verifikasi | `#E0F2FE` | `#0369A1` | `#BAE6FD` |
+| Menunggu Pembayaran | `#FFEDD5` | `#C2410C` | `#FDBA74` |
+| Selesai & Lunas | `#DCFCE7` | `#15803D` | `#86EFAC` |
+| Dibatalkan / Error | `#FEE2E2` | `#B91C1C` | `#FCA5A5` |
 
 ---
 
-## 3. Tipografi (Typography)
+## 3. Tipografi
 
-Menggunakan jenis huruf sans-serif sistem yang tajam, proporsional, dan tersedia secara bawaan di peramban modern tanpa membebani kuota data.
+- **Sans**: `Plus Jakarta Sans` (400, 500, 600, 700, 800), dimuat via Google Fonts di layout dengan `preconnect`. Fallback: `-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`.
+- **Mono**: `JetBrains Mono` (500, 600) untuk nomor pesanan, nomor WA, nominal. Gunakan `font-mono`.
+- Dasar: `html` 16px, `line-height` 1.65.
 
-- **Keluarga Huruf Utama**: `Inter`, `-apple-system`, `BlinkMacSystemFont`, `Segoe UI`, `sans-serif`.
-- **Ketebalan (*Font Weight*)**:
-  - `Regular (400)` untuk teks bacaan dan paragraf.
-  - `Medium (500)` untuk label input dan penjelas.
-  - `Semi-bold (600)` untuk tombol, sub-judul, dan penanda status.
-  - `Bold (700)` untuk judul halaman dan nominal harga.
+| Elemen | Ukuran |
+|---|---|
+| Judul halaman | 24–28px, `font-extrabold`/`font-bold` |
+| Judul bagian/kartu | 18–20px, `font-bold` |
+| Label form, tombol, isi | **16px** (`text-base`), `font-semibold` untuk label/tombol |
+| Catatan/tanggal | 14px (`text-sm`) |
 
-### Skala Ukuran Teks:
-
-- **Judul Utama Halaman**: 22px – 24px (Mobile: 20px) | `font-bold`
-- **Judul Bagian / Kartu**: 18px (Mobile: 17px) | `font-semibold`
-- **Label Form & Tombol**: 16px | `font-medium`
-- **Teks Tubuh / Keterangan**: 15px – 16px | `font-normal`
-- **Teks Kecil (Catatan/Tanggal)**: 13px – 14px | `font-normal`
-
-> **Aturan**: Tidak ada teks di antarmuka ponsel yang berukuran lebih kecil dari 13px.
+> **Aturan**: tidak ada teks isi/label/tombol di bawah 14px. Hindari `text-xs` dan `text-[11px]` pada halaman hasil refaktor, kecuali label bottom nav (12px, bold, selalu dengan ikon + teks).
+> Input otomatis minimal 16px (mencegah zoom iOS).
 
 ---
 
-## 4. Komponen Antarmuka (UI Components)
+## 4. Standar Ramah Orang Tua (WAJIB)
 
-### 4.1. Tombol (Buttons)
-
-Tombol dirancang dengan penekanan area sentuh yang luas (*touch-friendly*):
-
-```text
-Tombol Utama (Primary):
-[ Simpan & Tugaskan Teknisi ]
-- Latar: #1E3E34 (Hijau Khidmat)
-- Teks: #FFFFFF (Putih Tebal, 16px)
-- Tinggi: 48px
-- Radius: 8px (sudut melengkung wajar, bukan kapsul berlebih)
-- Efek: Tanpa animasi memantul/glow. Cukup perubahan warna sedikit lebih gelap saat disentuh.
-
-Tombol Sekunder (Secondary / Outline):
-[ Kembali ]
-- Latar: #FFFFFF
-- Garis: 1.5px solid #D1D5DB
-- Teks: #374151
-```
-
-### 4.2. Formulir Input (Form Controls)
-
-Input form mengutamakan keterbacaan tinggi dan penanda aktif yang jelas:
-
-- **Tinggi Input**: 46px – 48px agar nyaman diketik di layar sentuh.
-- **Warna Bingkai Normal**: `1.5px solid #D1D5DB`.
-- **Warna Bingkai Fokus (Saat Diketik)**: `2px solid #1E3E34` dengan ring halus transparan (`#1E3E34` opacity 10%).
-- **Latar Belakang**: Putih murni (`#FFFFFF`).
-- **Placeholder**: Teks contoh berwarna abu-abu terang (`#9CA3AF`), menggunakan format kalimat riil (misal: `"Contoh: Masjid Al-Ikhlas"`).
-
-### 4.3. Kartu Informasi (Cards)
-
-Menggantikan konsep *glassmorphism* transparan dengan kartu solid klasik:
-
-- **Latar Belakang**: Putih solid (`#FFFFFF`).
-- **Garis Pembatas**: `1px solid #E5E7EB`.
-- **Bayangan (Shadow)**: `box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06)` (sangat halus, hanya untuk memisahkan kartu dari latar abu-abu).
-- **Padding Dalam**: 20px di desktop, 16px di ponsel.
-- **Radius Sudut**: 12px.
-
-### 4.4. Label Status (Badges)
-
-Label status dibuat bersih berupa kotak kecil bersudut tumpul tanpa ikon dekoratif di dalamnya:
-
-```text
-Format Badge:
-[ Baru ]           -> Latar Kuning Pucat, Teks Cokelat Tua
-[ Dijadwalkan ]    -> Latar Biru Lembut, Teks Biru Pekat
-[ Menunggu Bayar ] -> Latar Oranye Muda, Teks Oranye Gelap
-[ Selesai ]        -> Latar Hijau Muda, Teks Hijau Tua
-```
+1. Tombol aksi utama: tinggi **minimal 48px**, lebar penuh di HP, radius 12px, teks 16px semibold.
+2. Seluruh target sentuh (tombol, link menu, tombol tutup): **minimal 44–48px** (utility `tap-target`).
+3. Input: tinggi 48px, border 2px/1.5px jelas, fokus memakai ring hijau.
+4. Jarak antar elemen interaktif lega (min. 8px) agar tidak salah sentuh.
+5. Fokus keyboard: `:focus-visible` otomatis memakai outline 3px `primary-light` (global di `app.css`).
+6. Informasi penting tidak hanya mengandalkan warna: sertakan ikon/teks (mis. banner flash punya ikon + teks).
+7. Label tombol bahasa Indonesia yang jelas ("Keluar", "Masuk Petugas", "Kirim Pesanan Servis").
 
 ---
 
-## 5. Tata Letak Berdasarkan Peran (Role-Based Layouts)
+## 5. Master Layout (`layouts/app.blade.php`)
 
-### 5.1. Formulir Tamu / DKM (Tampilan Ponsel Publik)
-- **Struktur**: Satu kolom lurus terpusat (*Single Column Form*), lebar maksimal 520px.
-- **Pencarian Masjid**:
-  - Kolom teks pencarian sederhana dengan kotak daftar rekomendasi di bawahnya jika nama masjid sudah pernah ada di database.
-  - Jika belum ada, tombol teks jelas: `+ Daftarkan nama masjid baru ini`.
-- **Pilihan Jenis Kerusakan**:
-  - Berbentuk kotak pilihan besar (*Card Radio Selector*) yang mudah ditekan jempol, bukan dropdown kecil yang sulit dibuka di ponsel.
+- **Header sticky** (tinggi 64px): logo gradien `primary → primary-light`, nama "Servis AC Masjid"; subjudul hanya tampil di ≥ `sm`.
+- **Desktop (≥ `md`) Admin**: navigasi horizontal pill (Pesanan, Data Masjid & AC, Akun Petugas); halaman aktif = latar `primary` + teks putih + `aria-current="page"`.
+- **Mobile Admin**: **Bottom Navigation** fixed (3 menu: Pesanan, Masjid, Petugas), tinggi ≥ 64px, ikon + label teks, aktif = `primary-subtle` + garis atas tebal. Memakai class `no-print` dan `safe-bottom` (safe area). `<body>` otomatis `pb-24` untuk admin di mobile agar konten tidak tertutup.
+- **Tombol** "Masuk Petugas" (solid hijau) dan "Keluar" (outline hijau): `tap-target`.
+- **Flash message**: banner besar (teks 16px semibold, ikon status, border 2px, tombol tutup 48px), `role="status"` untuk sukses dan `role="alert"` untuk error. Warna sukses hijau fungsional, error merah.
+- **Footer**: satu baris ringkas, `no-print`.
+- Kelas `no-print` dipakai untuk elemen yang disembunyikan saat cetak (header, footer, bottom nav, flash).
 
-### 5.2. Layar Teknisi (Mobile First Operasional)
-- **Tampilan Beranda**:
-  - Menampilkan 1 tugas utama yang sedang aktif di bagian paling atas.
-  - Blok info masjid: Nama Masjid (tebal), Alamat, Nama Kontak DKM.
-  - Dua tombol utilitas berdampingan:
-    - `[ Buka Google Maps ]` (membuka aplikasi peta).
-    - `[ Chat WhatsApp ]` (langsung membuka WhatsApp ke nomor DKM).
-- **Layar Upload Foto Bukti**:
-  - Tombol ambil foto berbentuk kotak dengan garis putus-putus dan tombol jelas: `Ambil Foto Kamera`.
-  - Pratinjau foto langsung muncul dalam bentuk kotak mini dengan tombol hapus/ganti yang jelas jika gambar buram.
-
-### 5.3. Meja Kerja Admin (Dashboard Desktop & Tablet)
-- **Header Bersih**: Menampilkan nama sistem di kiri, tanggal hari ini, dan nama admin yang bertugas di kanan.
-- **Bilah Tab Status**: Tab navigasi horizontal sederhana untuk memfilter data:
-  - `Semua Pesanan`
-  - `Pesanan Baru (3)`
-  - `Sedang Berjalan (2)`
-  - `Menunggu Pembayaran (1)`
-  - `Selesai`
-- **Tabel Data Rapi**:
-  - Baris tabel berjarak longgar (*comfortable row padding* 14px).
-  - Garis pemisah abu-abu tipis antar baris.
-  - Kolom aksi langsung berupa tombol teks: `Tugaskan`, `Detail`, atau `Verifikasi`.
+### Kontrak backend layout (JANGAN diubah)
+`<meta name="csrf-token">`, `@vite(['resources/css/app.css', 'resources/js/app.js'])`, `{{ $slot ?? '' }}` + `@yield('content')`, `session('success')` / `session('error')`, form logout `POST route('logout')` + `@csrf`, logika `@auth` + `Auth::user()->isAdmin()`, dan cek `request()->routeIs('admin.dashboard' | 'admin.masjids.*' | 'admin.users.*')`.
 
 ---
 
-## 6. Contoh Implementasi Kelas Tailwind CSS
+## 6. Komponen
 
-Konfigurasi kelas Tailwind yang direkomendasikan untuk proyek baru:
-
+### Tombol utama
 ```html
-<!-- Contoh Tombol Utama Bersih -->
-<button class="w-full sm:w-auto px-6 py-3 bg-[#1E3E34] hover:bg-[#142B24] text-white font-medium text-base rounded-lg transition-colors focus:ring-2 focus:ring-[#1E3E34] focus:ring-offset-2">
-  Simpan dan Tugaskan Teknisi
+<button class="w-full sm:w-auto min-h-[48px] px-6 bg-primary hover:bg-primary-hover text-white font-semibold text-base rounded-xl transition-colors">
+  Simpan
 </button>
-
-<!-- Contoh Input Teks Ramah Jempol -->
-<div class="space-y-1.5">
-  <label class="block text-sm font-medium text-gray-900">
-    Nama Masjid atau Musholla
-  </label>
-  <input 
-    type="text" 
-    class="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 text-base placeholder-gray-400 focus:outline-none focus:border-[#1E3E34] focus:ring-1 focus:ring-[#1E3E34]"
-    placeholder="Contoh: Masjid Jamie Al-Barkah"
-  >
-</div>
-
-<!-- Contoh Kartu Solid Tanpa Glassmorphism -->
-<div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-4">
-  <div class="flex items-center justify-between">
-    <h3 class="text-lg font-semibold text-gray-900">Masjid Jamie Al-Barkah</h3>
-    <span class="px-3 py-1 rounded-md text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
-      Pesanan Baru
-    </span>
-  </div>
-  <p class="text-sm text-gray-600">Jalan Mawar No. 4, Kebayoran Baru</p>
-</div>
 ```
+
+### Tombol sekunder
+```html
+<button class="min-h-[48px] px-6 bg-white border-2 border-primary text-primary font-semibold text-base rounded-xl hover:bg-primary-subtle">
+  Kembali
+</button>
+```
+
+### Input
+```html
+<label class="block text-base font-semibold text-text-main">Nama Masjid</label>
+<input class="w-full min-h-[48px] px-4 bg-white border-2 border-primary-border rounded-xl text-base placeholder-gray-400 focus:border-primary">
+```
+
+### Kartu
+```html
+<div class="bg-surface border border-primary-border rounded-2xl p-5 shadow-sm">...</div>
+```
+
+### Badge status
+Kotak kecil bersudut tumpul, teks minimal 14px semibold, memakai warna status fungsional (bagian 2).
 
 ---
 
-## 7. Ringkasan Pantangan Desain (Design Don'ts)
+## 7. Aturan Cetak (Kuitansi)
 
-1. **Dilarang menggunakan ikon dekoratif/emoji acak** di tengah kalimat atau judul tabel.
-2. **Dilarang menggunakan teks abu-abu terang di atas latar putih** yang sulit dibaca mata orang tua.
-3. **Dilarang menggunakan efek latar buram/transparan (*glassmorphism*)** yang membuat teks kabur dan rendering lambat di ponsel Android standar.
-4. **Dilarang menggunakan dropdown berlapis** untuk aksi yang sebenarnya bisa diselesaikan dalam 1 klik tombol.
-5. **Dilarang menggunakan istilah asing/singkatan sistem** yang tidak dimengerti marbot masjid.
+`app.css` memuat `@media print` global: menyembunyikan `.no-print`, `header`, `footer`, `nav`; latar putih, teks hitam, tanpa bayangan. Tandai elemen interaktif (tombol cetak, tautan navigasi) dengan `no-print`.
+
+---
+
+## 8. Pantangan
+
+1. Dilarang ikon/emoji dekoratif tanpa fungsi.
+2. Dilarang teks abu-abu terang di atas latar putih.
+3. Dilarang glassmorphism/blur/transparansi pada kartu.
+4. Dilarang teks isi/tombol < 14px dan tombol < 44px.
+5. Dilarang hex hijau hardcode baru; pakai token `primary*`.
+6. Dilarang menghapus atribut `name`, `action`, `id`, atau script yang terhubung ke backend (lihat laporan audit bagian 5).
+7. Aksen emas (`accent-gold`) maksimal 5% area.
